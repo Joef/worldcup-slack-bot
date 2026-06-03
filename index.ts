@@ -1,0 +1,334 @@
+import * as fs from "fs";
+import { ID, MATCH, EVENT, PERIOD, ENDPOINTS, BASE } from "./constants";
+import { LOCALE, language } from "./languages";
+
+const SLACK_TOKEN = process.env.SLACK_TOKEN ?? "";
+const SLACK_CHANNEL = process.env.SLACK_CHANNEL ?? "#worldcup";
+const SLACK_BOT_NAME = process.env.SLACK_BOT_NAME ?? "WorldCup Bot";
+const SLACK_BOT_AVATAR = process.env.SLACK_BOT_AVATAR ?? "";
+
+const USE_PROXY = process.env.USE_PROXY === "true";
+const PROXY = process.env.PROXY ?? "";
+const PROXY_USERPWD: string | false = process.env.PROXY_USERPWD || false;
+
+const locale = (process.env.LOCALE ?? LOCALE.EN) as LOCALE;
+
+/**
+ * Below this line, you should modify at your own risk
+ */
+
+interface MatchData {
+  stage_id: string;
+  teamsById: Record<string, string>;
+  teamsByHomeAway: { Home: string; Away: string };
+  last_update: number;
+  score?: string;
+}
+
+interface DB {
+  live_matches: string[];
+  etag: Record<string, string>;
+  [matchId: string]: unknown;
+}
+
+const dbFile = "./worldCupDB.json";
+let db: DB = JSON.parse(fs.readFileSync(dbFile, "utf-8"));
+
+// Clean etag once in a while
+if (db.etag && Object.keys(db.etag).length > 5) {
+  db.etag = {};
+}
+
+/*
+ * Get data from URL
+ */
+async function getUrl(
+  url: string,
+  doNotUseEtag = false
+): Promise<string | false> {
+  const headers: Record<string, string> = {};
+
+  if (!doNotUseEtag && db.etag && db.etag[url]) {
+    headers["If-None-Match"] = `"${db.etag[url]}"`;
+  }
+
+  const fetchOptions: RequestInit = {
+    headers,
+    signal: AbortSignal.timeout(5000),
+  };
+
+  // Proxy support would require a proxy agent (e.g. https-proxy-agent package)
+  if (USE_PROXY) {
+    console.warn(`Proxy configured (${PROXY}) but not applied — install https-proxy-agent to enable proxy support.`);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, fetchOptions);
+  } catch (err) {
+    console.error("Fetch error:", err);
+    process.exit(1);
+  }
+
+  // Handle 304 Not Modified
+  if (response.status === 304) {
+    return false;
+  }
+
+  const etag = response.headers.get("ETag");
+  if (etag) {
+    const etagMatch = etag.match(/"([0-9]+)"/i);
+    if (etagMatch) {
+      db.etag[url] = etagMatch[1];
+      fs.writeFileSync(dbFile, JSON.stringify(db));
+    }
+  }
+
+  const text = await response.text();
+  if (text.trim().length === 0) {
+    return false;
+  }
+
+  return text;
+}
+
+/*
+ * Post text and attachments to Slack
+ */
+async function postToSlack(
+  text: string,
+  attachmentsText = ""
+): Promise<void> {
+  let slackUrl =
+    `https://slack.com/api/chat.postMessage?token=${SLACK_TOKEN}` +
+    `&channel=${encodeURIComponent(SLACK_CHANNEL)}` +
+    `&username=${encodeURIComponent(SLACK_BOT_NAME)}` +
+    `&icon_url=${SLACK_BOT_AVATAR}` +
+    `&unfurl_links=1&parse=full&pretty=1` +
+    `&text=${encodeURIComponent(text)}`;
+
+  if (attachmentsText) {
+    slackUrl += `&attachments=${encodeURIComponent(`[{"text": "${attachmentsText}"}]`)}`;
+  }
+
+  console.log(await getUrl(slackUrl));
+}
+
+async function getEventPlayerAlias(eventPlayerId: string): Promise<string> {
+  const response = JSON.parse(
+    (await getUrl(
+      `${BASE}${ENDPOINTS.PLAYER}/${eventPlayerId}`,
+      true
+    )) as string
+  );
+  return response["Alias"][0]["Description"];
+}
+
+
+async function main(): Promise<void> {
+  
+  const url = `${BASE}${ENDPOINTS.MATCHES}?idCompetition=${ID.COMPETITION}&idSeason=${ID.SEASON}&count=500&language=${locale}`;
+  
+  // Retrieve all matches
+  const matchesResponse = await getUrl(url);
+  let matches: any[] = [];
+
+  // In case of not a 304
+  if (matchesResponse !== false) {
+    matches = JSON.parse(matchesResponse)["Results"];
+  }
+
+  // Find live matches and update score
+  for (const match of matches) {
+    if (
+      match["MatchStatus"] === MATCH.LIVE &&
+      !db.live_matches.includes(match["IdMatch"])
+    ) {
+      // Yay new match!
+      db.live_matches.push(match["IdMatch"]);
+      (db[match["IdMatch"]] as MatchData) = {
+        stage_id: match["IdStage"],
+        teamsById: {
+          [match["Home"]["IdTeam"]]: match["Home"]["TeamName"][0]["Description"],
+          [match["Away"]["IdTeam"]]: match["Away"]["TeamName"][0]["Description"],
+        },
+        teamsByHomeAway: {
+          Home: match["Home"]["TeamName"][0]["Description"],
+          Away: match["Away"]["TeamName"][0]["Description"],
+        },
+        last_update: Date.now() / 1000,
+      };
+
+      // Notify Slack & save data
+      await postToSlack(
+        `:zap: ${language[locale][0]} ${match["Home"]["TeamName"][0]["Description"]} / ${match["Away"]["TeamName"][0]["Description"]} ${language[locale][1]}! `
+      );
+    }
+
+    if (db.live_matches.includes(match["IdMatch"])) {
+      // Update score
+      (db[match["IdMatch"]] as MatchData).score =
+        `${match["Home"]["TeamName"][0]["Description"]} ${match["Home"]["Score"]} - ${match["Away"]["Score"]} ${match["Away"]["TeamName"][0]["Description"]}`;
+    }
+
+    // Save immediately, to avoid loops
+    fs.writeFileSync(dbFile, JSON.stringify(db));
+  }
+
+  // Post update on live matches (events since last updated time)
+  for (let key = 0; key < db.live_matches.length; key++) {
+    const matchId = db.live_matches[key];
+    const matchData = db[matchId] as MatchData;
+    const homeTeamName = matchData.teamsByHomeAway["Home"];
+    const awayTeamName = matchData.teamsByHomeAway["Away"];
+    const lastUpdateSeconds = matchData.last_update;
+
+    // Retrieve match events
+    const eventsResponse = await getUrl(
+      `${BASE}${ENDPOINTS.TIMELINES}/${ID.COMPETITION}/${ID.SEASON}/${matchData.stage_id}/${matchId}?language=${locale}`
+    );
+
+    // In case of 304
+    if (eventsResponse === false) {
+      continue;
+    }
+
+    const events: any[] = JSON.parse(eventsResponse)["Event"];
+    for (const event of events) {
+      const eventType: number = event["Type"];
+      const period: number = event["Period"];
+      const eventTimeSeconds = new Date(event["Timestamp"]).getTime() / 1000;
+
+      if (eventTimeSeconds > lastUpdateSeconds) {
+        const matchTime: string = event["MatchMinute"];
+
+        const teamsById = { ...matchData.teamsById };
+        const eventTeam = teamsById[event["IdTeam"]];
+        delete teamsById[event["IdTeam"]];
+        const eventOtherTeam = Object.values(teamsById)[0];
+        let eventPlayerAlias: string | null = null;
+
+        const score = `${homeTeamName} ${event["HomeGoals"]} - ${event["AwayGoals"]} ${awayTeamName}`;
+        let subject = "";
+        let details = "";
+        let interestingEvent = true;
+
+        switch (eventType) {
+          // Timekeeping
+          case EVENT.PERIOD_START:
+            switch (period) {
+              case PERIOD.FIRST_HALF:
+                subject = `:zap: ${language[locale][0]} ${homeTeamName} / ${awayTeamName} ${language[locale][8]}!`;
+                break;
+              case PERIOD.SECOND_HALF:
+              case PERIOD.FIRST_ET:
+              case PERIOD.SECOND_ET:
+              case PERIOD.PENALTY:
+                subject = `:runner: ${language[locale][0]} ${homeTeamName} / ${awayTeamName} ${language[locale][11]}`;
+                break;
+            }
+            break;
+
+          case EVENT.PERIOD_END:
+            switch (period) {
+              case PERIOD.FIRST_HALF:
+                subject = `:toilet: ${language[locale][9]} ${score}`;
+                details = matchTime;
+                break;
+              case PERIOD.SECOND_HALF:
+                subject = `:stopwatch: ${language[locale][10]} ${score}`;
+                details = matchTime;
+                break;
+              case PERIOD.FIRST_ET:
+                subject = `:toilet: ${language[locale][12]} ${score}`;
+                details = matchTime;
+                break;
+              case PERIOD.SECOND_ET:
+                subject = `:stopwatch: ${language[locale][13]} ${score}`;
+                details = matchTime;
+                break;
+              case PERIOD.PENALTY:
+                subject = `:stopwatch: ${language[locale][14]} ${score} (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
+                details = matchTime;
+                break;
+            }
+            break;
+
+          // Goals
+          case EVENT.GOAL:
+          case EVENT.FREE_KICK_GOAL:
+          case EVENT.PENALTY_GOAL:
+            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            subject = `:soccer: ${language[locale][6]} ${eventTeam}!!!`;
+            details = `${eventPlayerAlias} (${matchTime}) ${score}`;
+            if (period === PERIOD.PENALTY) {
+              details += ` (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
+            }
+            break;
+
+          case EVENT.OWN_GOAL:
+            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            subject = `:face_palm: ${language[locale][4]} ${eventTeam}!!!`;
+            details = `${eventPlayerAlias} (${matchTime}) ${score}`;
+            break;
+
+          // Cards
+          case EVENT.YELLOW_CARD:
+            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            subject = `:collision: ${language[locale][2]} ${eventTeam}`;
+            details = `${eventPlayerAlias} (${matchTime})`;
+            break;
+
+          case EVENT.SECOND_YELLOW_CARD_RED:
+          case EVENT.STRAIGHT_RED:
+            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            subject = `:collision: ${language[locale][3]} ${eventTeam}`;
+            details = `${eventPlayerAlias} (${matchTime})`;
+            break;
+
+          // Penalties
+          case EVENT.FOUL_PENALTY:
+            subject = `:exclamation: ${language[locale][5]} ${eventOtherTeam}!!!`;
+            break;
+
+          case EVENT.PENALTY_MISSED:
+          case EVENT.PENALTY_SAVED:
+          case EVENT.PENALTY_CROSSBAR:
+            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            subject = `:no_good: ${language[locale][7]} ${eventTeam}!!!`;
+            details = `${eventPlayerAlias} (${matchTime})`;
+            if (period === PERIOD.PENALTY) {
+              details += ` (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
+            }
+            break;
+
+          // End of live match
+          case EVENT.END_OF_GAME:
+            db.live_matches.splice(key, 1);
+            key--;
+            delete db[matchId];
+            interestingEvent = false;
+            break;
+
+          default:
+            interestingEvent = false;
+            continue;
+        }
+
+        if (interestingEvent) {
+          await postToSlack(subject, details);
+          matchData.last_update = Date.now() / 1000;
+        }
+      }
+    }
+  }
+
+  // Record state for next run
+  fs.writeFileSync(dbFile, JSON.stringify(db));
+  process.exit(0);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

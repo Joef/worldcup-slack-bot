@@ -1,24 +1,16 @@
-# Worldcup Slack Bot
+# WorldCup Bot for Slack
 
-WorldCupBot will notify a Slack channel/group for every matches during the 2018 FIFA World Cup Russia™.
-
-It uses the "unofficial" FIFA json API (the one used for their mobile apps).
-
+It uses the unofficial FIFA json API (the one used for their mobile app iOS/Android).
 It will post a message :
   - when a match starts
-  - for every red/yellow card
+  - for red/yellow card
   - for the half time and end time
+  - for every penalty
   - and of course, for every goal
-
-### Preview
-
-Here is a preview of the Colombia vs Japan match.
-
-![worldcup-slack-bot sample](https://i.imgur.com/H5kUavh.png)
 
 ### Requirements
 
-  - PHP >= 5.3
+  - Node.js >= 18
   - You need a token from Slack:
     - Jump at https://api.slack.com/custom-integrations/legacy-tokens (you have to login)
     - and you will find your token.
@@ -26,14 +18,11 @@ Here is a preview of the Colombia vs Japan match.
 ### Installation
 
   - Clone this repo
+  - Copy `.env` and fill in your values
   - Set up a cron to run every minute:
 
   ````
-  * * * * * cd /path/to/folder && php worldCupNotifier.php >> worldCupNotifier.log
+  * * * * * cd /path/to/folder && npx ts-node index.ts >> worldCupNotifier.log
   ````
 
-### Side notes
-
-The code is ugly but it works.
-
-Everything is posted in french, but feel free to fork and use your own language. FYI, FIFA API can provide text in en/fr/de/es/pt.
+**License:** MIT

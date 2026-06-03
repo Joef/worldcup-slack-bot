@@ -1,0 +1,26 @@
+{
+  "name": "worldcup-slack-bot",
+  "version": "1.0.0",
+  "description": "It uses the unofficial FIFA json API (the one used for their mobile app iOS/Android). It will post a message :   - when a match starts   - for red/yellow card   - for the half time and end time   - for every penalty   - and of course, for every goal",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Joef/worldcup-slack-bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Joef/worldcup-slack-bot/issues"
+  },
+  "homepage": "https://github.com/Joef/worldcup-slack-bot#readme",
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

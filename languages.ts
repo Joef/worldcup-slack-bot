@@ -1,0 +1,41 @@
+export enum LOCALE {
+  FR = 'fr-FR',
+  EN = 'en-GB',
+}
+
+export const language: Record<LOCALE, string[]> = {
+  [LOCALE.FR]: [
+    "Le match",
+    "est sur le point de commencer ",
+    "Carton jaune",
+    "Carton rouge",
+    "But contre son camp",
+    "Pénalty",
+    "BUUUUUT",
+    "Pénalty manqué",
+    "commence",
+    "Mi-temps",
+    "Fin de la 2e période",
+    "a repris",
+    "Mi-temps de la prolongation",
+    "Fin de la prolongation",
+    "Fin de la séance de tirs au but",
+  ],
+  [LOCALE.EN]: [
+    "The match between",
+    "is about to start",
+    "Yellow card",
+    "Red card",
+    "Own goal",
+    "Penalty",
+    "GOOOOAL",
+    "Missed penalty",
+    "has started",
+    "HALF TIME",
+    "FULL TIME",
+    "has resumed",
+    "END OF 1ST ET",
+    "END OF 2ND ET",
+    "END OF PENALTY SHOOTOUT",
+  ],
+};
