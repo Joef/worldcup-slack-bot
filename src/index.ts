@@ -1,38 +1,14 @@
 
 import { ID, MATCH, EVENT, PERIOD, ENDPOINTS, BASE } from "./constants";
-import { loadDb, saveDb } from "./db";
+import { DB, loadDb, MatchData, saveDb } from "./db";
 import { LOCALE, language } from "./languages";
-
-const SLACK_TOKEN = process.env.SLACK_TOKEN ?? "";
-const SLACK_CHANNEL = process.env.SLACK_CHANNEL ?? "#worldcup";
-const SLACK_BOT_NAME = process.env.SLACK_BOT_NAME ?? "WorldCup Bot";
-const SLACK_BOT_AVATAR = process.env.SLACK_BOT_AVATAR ?? "";
+import { postToSlack } from "./slack";
 
 const USE_PROXY = process.env.USE_PROXY === "true";
 const PROXY = process.env.PROXY ?? "";
 const PROXY_USERPWD: string | false = process.env.PROXY_USERPWD || false;
 
 const locale = (process.env.LOCALE ?? LOCALE.EN) as LOCALE;
-
-/**
- * Below this line, you should modify at your own risk
- */
-
-interface MatchData {
-  stage_id: string;
-  teamsById: Record<string, string>;
-  teamsByHomeAway: { Home: string; Away: string };
-  last_update: number;
-  score?: string;
-}
-
-interface DB {
-  live_matches: string[];
-  etag: Record<string, string>;
-  [matchId: string]: unknown;
-}
-
-
 
 let db: DB;
 
@@ -87,28 +63,6 @@ async function getUrl(
   }
 
   return text;
-}
-
-/*
- * Post text and attachments to Slack
- */
-async function postToSlack(
-  text: string,
-  attachmentsText = ""
-): Promise<void> {
-  let slackUrl =
-    `https://slack.com/api/chat.postMessage?token=${SLACK_TOKEN}` +
-    `&channel=${encodeURIComponent(SLACK_CHANNEL)}` +
-    `&username=${encodeURIComponent(SLACK_BOT_NAME)}` +
-    `&icon_url=${SLACK_BOT_AVATAR}` +
-    `&unfurl_links=1&parse=full&pretty=1` +
-    `&text=${encodeURIComponent(text)}`;
-
-  if (attachmentsText) {
-    slackUrl += `&attachments=${encodeURIComponent(`[{"text": "${attachmentsText}"}]`)}`;
-  }
-
-  console.log(await getUrl(slackUrl));
 }
 
 async function getEventPlayerAlias(eventPlayerId: string): Promise<string> {

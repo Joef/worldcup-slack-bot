@@ -11,9 +11,8 @@ It will post a message :
 ### Requirements
 
   - Node.js >= 18
-  - You need a token from Slack:
-    - Jump at https://api.slack.com/custom-integrations/legacy-tokens (you have to login)
-    - and you will find your token.
+  - Your Slack app needs these two scopes: chat:write and chat:write.customize (the latter is required for the custom username and icon_url fields).
+    
 
 ### Installation
 

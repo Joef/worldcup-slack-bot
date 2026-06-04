@@ -8,6 +8,21 @@ const dbFileName = "./worldCupDB.json";
 const storage = ENVIRONMENT === "prod" ? new Storage() : null;
 const bucket = storage?.bucket(GCS_BUCKET);
 
+export interface MatchData {
+  stage_id: string;
+  teamsById: Record<string, string>;
+  teamsByHomeAway: { Home: string; Away: string };
+  last_update: number;
+  score?: string;
+}
+
+export interface DB {
+  live_matches: string[];
+  etag: Record<string, string>;
+  [matchId: string]: unknown;
+}
+
+
 export async function loadDb(): Promise<DB> {
   if (ENVIRONMENT === "prod") {
     const [contents] = await bucket!.file(dbFileName).download();
