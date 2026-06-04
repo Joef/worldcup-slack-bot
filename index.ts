@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import { Storage } from "@google-cloud/storage";
 import { ID, MATCH, EVENT, PERIOD, ENDPOINTS, BASE } from "./constants";
 import { LOCALE, language } from "./languages";
 
@@ -31,13 +32,32 @@ interface DB {
   [matchId: string]: unknown;
 }
 
-const dbFile = "./worldCupDB.json";
-let db: DB = JSON.parse(fs.readFileSync(dbFile, "utf-8"));
+const ENVIRONMENT = process.env.ENVIRONMENT ?? "local";
+const GCS_BUCKET = process.env.GCS_BUCKET ?? "worldcup-bot-state";
+const dbFileName = "./worldCupDB.json";
 
-// Clean etag once in a while
-if (db.etag && Object.keys(db.etag).length > 5) {
-  db.etag = {};
+const storage = ENVIRONMENT === "prod" ? new Storage() : null;
+const bucket = storage?.bucket(GCS_BUCKET);
+
+async function loadDb(): Promise<DB> {
+  if (ENVIRONMENT === "prod") {
+    const [contents] = await bucket!.file(dbFileName).download();
+    return JSON.parse(contents.toString("utf-8"));
+  }
+  return JSON.parse(fs.readFileSync(dbFileName, "utf-8"));
 }
+
+async function saveDb(db: DB): Promise<void> {
+  if (ENVIRONMENT === "prod") {
+    await bucket!.file(dbFileName).save(JSON.stringify(db), {
+      contentType: "application/json",
+    });
+  } else {
+    fs.writeFileSync(dbFileName, JSON.stringify(db));
+  }
+}
+
+let db: DB;
 
 /*
  * Get data from URL
@@ -80,7 +100,7 @@ async function getUrl(
     const etagMatch = etag.match(/"([0-9]+)"/i);
     if (etagMatch) {
       db.etag[url] = etagMatch[1];
-      fs.writeFileSync(dbFile, JSON.stringify(db));
+      await saveDb(db);
     }
   }
 
@@ -126,7 +146,13 @@ async function getEventPlayerAlias(eventPlayerId: string): Promise<string> {
 
 
 async function main(): Promise<void> {
-  
+  db = await loadDb();
+
+  // Clean etag once in a while
+  if (db.etag && Object.keys(db.etag).length > 5) {
+    db.etag = {};
+  }
+
   const url = `${BASE}${ENDPOINTS.MATCHES}?idCompetition=${ID.COMPETITION}&idSeason=${ID.SEASON}&count=500&language=${locale}`;
   
   // Retrieve all matches
@@ -172,7 +198,7 @@ async function main(): Promise<void> {
     }
 
     // Save immediately, to avoid loops
-    fs.writeFileSync(dbFile, JSON.stringify(db));
+    await saveDb(db);
   }
 
   // Post update on live matches (events since last updated time)
@@ -324,7 +350,7 @@ async function main(): Promise<void> {
   }
 
   // Record state for next run
-  fs.writeFileSync(dbFile, JSON.stringify(db));
+  await saveDb(db);
   process.exit(0);
 }
 
