@@ -1,6 +1,8 @@
+import 'dotenv/config';
 import { MATCH, EVENT, PERIOD } from './constants';
 import { DB, loadDb, MatchData, saveDb } from './db';
 import { locale, language } from './languages';
+import { logger } from './logger';
 import { slack } from './slack';
 import {
   getMatches,
@@ -14,6 +16,7 @@ import {
 } from './api';
 
 async function main(): Promise<void> {
+  logger.info('Bot run started');
   const db: DB = await loadDb();
 
   const t = language[locale];
@@ -25,25 +28,33 @@ async function main(): Promise<void> {
 
   // Retrieve all matches
   const matches = await getMatches(db);
+  logger.info(`Fetched ${matches.length} matches`);
 
   // Find live matches and update score
   for (const match of matches) {
     if (
-      match.matchStatus === MATCH.LIVE &&
+      match.matchStatus === MATCH.LIVE
+      &&
       !db.live_matches.includes(match.idMatch)
     ) {
       // Yay new match!
+      const home = match.home!;
+      const away = match.away!;
+
+      logger.info(
+        `New live match: ${home.teamName[0].description} vs ${away.teamName[0].description} (${match.idMatch})`,
+      );
       db.live_matches.push(match.idMatch);
 
       (db[match.idMatch] as MatchData) = {
         stage_id: match.idStage,
         teamsById: {
-          [match.home.idTeam]: match.home.teamName[0].description,
-          [match.away.idTeam]: match.away.teamName[0].description,
+          [home.idTeam]: home.teamName[0].description,
+          [away.idTeam]: away.teamName[0].description,
         },
         teamsByHomeAway: {
-          home: match.home.teamName[0].description,
-          away: match.away.teamName[0].description,
+          home: home.teamName[0].description,
+          away: away.teamName[0].description,
         },
         last_update: Date.now() / 1000,
       };
@@ -53,15 +64,17 @@ async function main(): Promise<void> {
         slack.m(
           'zap',
           'matchBetween',
-          `${match.home.teamName[0].description} / ${match.away.teamName[0].description} ${t.isAboutToStart}!`,
+          `${home.teamName[0].description} / ${away.teamName[0].description} ${t.isAboutToStart}!`,
         ),
       );
     }
 
     if (db.live_matches.includes(match.idMatch)) {
+      const home = match.home!;
+      const away = match.away!;
       // Update score
       (db[match.idMatch] as MatchData).score =
-        `${match.home.teamName[0].description} ${match.home.score} - ${match.away.score} ${match.away.teamName[0].description}`;
+        `${home.teamName[0].description} ${home.score} - ${away.score} ${away.teamName[0].description}`;
     }
 
     // Save immediately, to avoid loops
@@ -220,12 +233,14 @@ async function main(): Promise<void> {
     }
   }
 
+  logger.info('Bot run complete');
+
   // Record state for next run
   await saveDb(db);
   process.exit(0);
 }
 
 main().catch((err) => {
-  console.error(err);
+  // logger.error(err instanceof Error ? err.stack ?? err.message : String(err));
   process.exit(1);
 });

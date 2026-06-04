@@ -1,5 +1,6 @@
 import Icon, { IconName } from './icons';
 import { locale, TranslationKey, language } from './languages';
+import { logger } from './logger';
 
 const SLACK_TOKEN = process.env.SLACK_TOKEN ?? '';
 const SLACK_CHANNEL = process.env.SLACK_CHANNEL ?? '#worldcup';
@@ -24,7 +25,7 @@ export const slack = {
     if (attachmentsText) {
       body.attachments = [{ text: attachmentsText }];
     }
-
+    logger.info(text);
     const response = await fetch(SLACK_URL, {
       method: 'POST',
       headers: {
@@ -36,7 +37,7 @@ export const slack = {
 
     const result = (await response.json()) as { ok: boolean; error?: string };
     if (!result.ok) {
-      console.error('Slack API error:', result.error);
+      logger.error(`Slack API error: ${result.error}`);
     }
   },
   m: (icon: IconName, text: TranslationKey, meta?: string) => {

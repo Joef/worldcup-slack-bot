@@ -12,12 +12,12 @@ export const MatchTeamSchema = z
   .object({
     IdTeam: z.string(),
     TeamName: z.array(TeamNameSchema),
-    Score: z.number(),
+    Score: z.number().nullable(),
   })
   .transform((d) => ({
     idTeam: d.IdTeam,
     teamName: d.TeamName,
-    score: d.Score,
+    score: d.Score ?? 0,
   }));
 
 export const MatchSchema = z
@@ -25,8 +25,8 @@ export const MatchSchema = z
     IdMatch: z.string(),
     IdStage: z.string(),
     MatchStatus: z.number(),
-    Home: MatchTeamSchema,
-    Away: MatchTeamSchema,
+    Home: MatchTeamSchema.nullable(),
+    Away: MatchTeamSchema.nullable(),
   })
   .transform((d) => ({
     idMatch: d.IdMatch,

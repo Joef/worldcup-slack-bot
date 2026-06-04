@@ -1,5 +1,6 @@
 import { PERIOD } from './constants';
 import { DB, saveDb } from './db';
+import { logger } from './logger';
 import { IconName } from './icons';
 import { language, locale, TranslationKey } from './languages';
 import {
@@ -49,7 +50,7 @@ export async function getUrl(
   };
 
   if (USE_PROXY) {
-    console.warn(
+    logger.warn(
       `Proxy configured (${PROXY}) but not applied — install https-proxy-agent to enable proxy support.`,
     );
   }
@@ -58,7 +59,7 @@ export async function getUrl(
   try {
     response = await fetch(url, fetchOptions);
   } catch (err) {
-    console.error('Fetch error:', err);
+    logger.error(`Fetch error: ${err}`);
     process.exit(1);
   }
 
@@ -87,9 +88,13 @@ export async function getMatches(db: DB): Promise<Match[]> {
   const url = buildUrl(
     `${ENDPOINTS.MATCHES}?idCompetition=${ID.COMPETITION}&idSeason=${ID.SEASON}&count=500&language=${locale}`,
   );
+  logger.info(`GET ${url}`);
   const response = await getUrl(url, db);
   if (response === false) return [];
-  return MatchesResponseSchema.parse(JSON.parse(response)).results;
+  const result = MatchesResponseSchema.parse(JSON.parse(response));
+  const matches = result.results.filter((m) => m.home !== null && m.away !== null) as Match[];
+  logger.info(`Parsed ${result.results.length} matches (${result.results.length - matches.length} without teams assigned)`);
+  return matches;
 }
 
 export async function getMatchEvents(
@@ -100,6 +105,7 @@ export async function getMatchEvents(
   const url = buildUrl(
     `${ENDPOINTS.TIMELINES}/${ID.COMPETITION}/${ID.SEASON}/${stageId}/${matchId}?language=${locale}`,
   );
+  logger.info(`GET ${url}`);
   const response = await getUrl(url, db);
   if (response === false) return [];
   return EventsResponseSchema.parse(JSON.parse(response)).events;
@@ -122,6 +128,7 @@ export interface Output {
 }
 
 export function parsePeriodStart(period: number, matchInfo: string): Output {
+  logger.info(`Event: period start (period ${period}) — ${matchInfo}`);
   const t = language[locale];
   switch (period) {
     case PERIOD.FIRST_HALF:
@@ -160,6 +167,7 @@ export function parsePeriodEnd(
   penalties?: string,
 ): Output {
   const { period, score, matchTimeInfo } = eventInfo;
+  logger.info(`Event: period end (period ${period})`);
   const output: Output = { message: '', details: matchTimeInfo };
 
   switch (period) {
@@ -206,6 +214,7 @@ export async function parsePlayerEvent(
 ): Promise<Output> {
   const { playerId, db, eventTeam } = playerInfo;
   const { score, matchTimeInfo } = eventInfo;
+  logger.info(`Event: ${text} — ${eventTeam}`);
   const eventPlayerAlias = await getEventPlayerAlias(playerId, db);
   return {
     message: slack.m(
