@@ -20,7 +20,8 @@
   },
   "homepage": "https://github.com/Joef/worldcup-slack-bot#readme",
   "dependencies": {
-    "@google-cloud/storage": "^7.0.0"
+    "@google-cloud/storage": "^7.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

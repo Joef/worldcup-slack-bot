@@ -11,7 +11,7 @@ const bucket = storage?.bucket(GCS_BUCKET);
 export interface MatchData {
   stage_id: string;
   teamsById: Record<string, string>;
-  teamsByHomeAway: { Home: string; Away: string };
+  teamsByHomeAway: { home: string; away: string };
   last_update: number;
   score?: string;
 }

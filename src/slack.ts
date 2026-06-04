@@ -9,7 +9,7 @@ const SLACK_URL = "https://slack.com/api/chat.postMessage"
 /*
  * Post text and attachments to Slack
  */
-export async function postToSlack(
+async function Post(
   text: string,
   attachmentsText = ""
 ): Promise<void> {
@@ -39,3 +39,5 @@ export async function postToSlack(
     console.error("Slack API error:", result.error);
   }
 }
+
+export const Slack = { Post };

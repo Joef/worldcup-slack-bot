@@ -2,7 +2,9 @@
 import { ID, MATCH, EVENT, PERIOD, ENDPOINTS, BASE } from "./constants";
 import { DB, loadDb, MatchData, saveDb } from "./db";
 import { LOCALE, language } from "./languages";
-import { postToSlack } from "./slack";
+import { Slack } from "./slack";
+import { EventsResponseSchema, MatchesResponseSchema, PlayerResponseSchema } from "./schema";
+import { Match, MatchEvent } from "./types";
 
 const USE_PROXY = process.env.USE_PROXY === "true";
 const PROXY = process.env.PROXY ?? "";
@@ -66,13 +68,10 @@ async function getUrl(
 }
 
 async function getEventPlayerAlias(eventPlayerId: string): Promise<string> {
-  const response = JSON.parse(
-    (await getUrl(
-      `${BASE}${ENDPOINTS.PLAYER}/${eventPlayerId}`,
-      true
-    )) as string
+  const response = PlayerResponseSchema.parse(
+    JSON.parse((await getUrl(`${BASE}${ENDPOINTS.PLAYER}/${eventPlayerId}`, true)) as string)
   );
-  return response["Alias"][0]["Description"];
+  return response.alias[0].description;
 }
 
 
@@ -90,44 +89,44 @@ async function main(): Promise<void> {
   
   // Retrieve all matches
   const matchesResponse = await getUrl(url);
-  let matches: any[] = [];
+  let matches: Match[] = [];
 
   // In case of not a 304
   if (matchesResponse !== false) {
-    matches = JSON.parse(matchesResponse)["Results"];
+    matches = MatchesResponseSchema.parse(JSON.parse(matchesResponse)).results;
   }
 
   // Find live matches and update score
   for (const match of matches) {
     if (
-      match["MatchStatus"] === MATCH.LIVE &&
-      !db.live_matches.includes(match["IdMatch"])
+      match.matchStatus === MATCH.LIVE &&
+      !db.live_matches.includes(match.idMatch)
     ) {
       // Yay new match!
-      db.live_matches.push(match["IdMatch"]);
-      (db[match["IdMatch"]] as MatchData) = {
-        stage_id: match["IdStage"],
+      db.live_matches.push(match.idMatch);
+      (db[match.idMatch] as MatchData) = {
+        stage_id: match.idStage,
         teamsById: {
-          [match["Home"]["IdTeam"]]: match["Home"]["TeamName"][0]["Description"],
-          [match["Away"]["IdTeam"]]: match["Away"]["TeamName"][0]["Description"],
+          [match.home.idTeam]: match.home.teamName[0].description,
+          [match.away.idTeam]: match.away.teamName[0].description,
         },
         teamsByHomeAway: {
-          Home: match["Home"]["TeamName"][0]["Description"],
-          Away: match["Away"]["TeamName"][0]["Description"],
+          home: match.home.teamName[0].description,
+          away: match.away.teamName[0].description,
         },
         last_update: Date.now() / 1000,
       };
 
       // Notify Slack & save data
-      await postToSlack(
-        `:zap: ${t.matchBetween} ${match["Home"]["TeamName"][0]["Description"]} / ${match["Away"]["TeamName"][0]["Description"]} ${t.isAboutToStart}! `
+      await Slack.Post(
+        `:zap: ${t.matchBetween} ${match.home.teamName[0].description} / ${match.away.teamName[0].description} ${t.isAboutToStart}! `
       );
     }
 
-    if (db.live_matches.includes(match["IdMatch"])) {
+    if (db.live_matches.includes(match.idMatch)) {
       // Update score
-      (db[match["IdMatch"]] as MatchData).score =
-        `${match["Home"]["TeamName"][0]["Description"]} ${match["Home"]["Score"]} - ${match["Away"]["Score"]} ${match["Away"]["TeamName"][0]["Description"]}`;
+      (db[match.idMatch] as MatchData).score =
+        `${match.home.teamName[0].description} ${match.home.score} - ${match.away.score} ${match.away.teamName[0].description}`;
     }
 
     // Save immediately, to avoid loops
@@ -138,8 +137,8 @@ async function main(): Promise<void> {
   for (let key = 0; key < db.live_matches.length; key++) {
     const matchId = db.live_matches[key];
     const matchData = db[matchId] as MatchData;
-    const homeTeamName = matchData.teamsByHomeAway["Home"];
-    const awayTeamName = matchData.teamsByHomeAway["Away"];
+    const homeTeamName = matchData.teamsByHomeAway.home;
+    const awayTeamName = matchData.teamsByHomeAway.away;
     const lastUpdateSeconds = matchData.last_update;
 
     // Retrieve match events
@@ -152,22 +151,22 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const events: any[] = JSON.parse(eventsResponse)["Event"];
+    const events: MatchEvent[] = EventsResponseSchema.parse(JSON.parse(eventsResponse)).events;
     for (const event of events) {
-      const eventType: number = event["Type"];
-      const period: number = event["Period"];
-      const eventTimeSeconds = new Date(event["Timestamp"]).getTime() / 1000;
+      const eventType = event.type;
+      const period = event.period;
+      const eventTimeSeconds = new Date(event.timestamp).getTime() / 1000;
 
       if (eventTimeSeconds > lastUpdateSeconds) {
-        const matchTime: string = event["MatchMinute"];
+        const matchTime = event.matchMinute;
 
         const teamsById = { ...matchData.teamsById };
-        const eventTeam = teamsById[event["IdTeam"]];
-        delete teamsById[event["IdTeam"]];
+        const eventTeam = teamsById[event.idTeam];
+        delete teamsById[event.idTeam];
         const eventOtherTeam = Object.values(teamsById)[0];
         let eventPlayerAlias: string | null = null;
 
-        const score = `${homeTeamName} ${event["HomeGoals"]} - ${event["AwayGoals"]} ${awayTeamName}`;
+        const score = `${homeTeamName} ${event.homeGoals} - ${event.awayGoals} ${awayTeamName}`;
         let subject = "";
         let details = "";
         let interestingEvent = true;
@@ -207,7 +206,7 @@ async function main(): Promise<void> {
                 details = matchTime;
                 break;
               case PERIOD.PENALTY:
-                subject = `:stopwatch: ${t.endOfPenaltyShootout} ${score} (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
+                subject = `:stopwatch: ${t.endOfPenaltyShootout} ${score} (${event.homePenaltyGoals} - ${event.awayPenaltyGoals})`;
                 details = matchTime;
                 break;
             }
@@ -217,30 +216,30 @@ async function main(): Promise<void> {
           case EVENT.GOAL:
           case EVENT.FREE_KICK_GOAL:
           case EVENT.PENALTY_GOAL:
-            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            eventPlayerAlias = await getEventPlayerAlias(event.idPlayer);
             subject = `:soccer: ${t.goal} ${eventTeam}!!!`;
             details = `${eventPlayerAlias} (${matchTime}) ${score}`;
             if (period === PERIOD.PENALTY) {
-              details += ` (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
+              details += ` (${event.homePenaltyGoals} - ${event.awayPenaltyGoals})`;
             }
             break;
 
           case EVENT.OWN_GOAL:
-            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            eventPlayerAlias = await getEventPlayerAlias(event.idPlayer);
             subject = `:face_palm: ${t.ownGoal} ${eventTeam}!!!`;
             details = `${eventPlayerAlias} (${matchTime}) ${score}`;
             break;
 
           // Cards
           case EVENT.YELLOW_CARD:
-            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            eventPlayerAlias = await getEventPlayerAlias(event.idPlayer);
             subject = `:collision: ${t.yellowCard} ${eventTeam}`;
             details = `${eventPlayerAlias} (${matchTime})`;
             break;
 
           case EVENT.SECOND_YELLOW_CARD_RED:
           case EVENT.STRAIGHT_RED:
-            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            eventPlayerAlias = await getEventPlayerAlias(event.idPlayer);
             subject = `:collision: ${t.redCard} ${eventTeam}`;
             details = `${eventPlayerAlias} (${matchTime})`;
             break;
@@ -253,11 +252,11 @@ async function main(): Promise<void> {
           case EVENT.PENALTY_MISSED:
           case EVENT.PENALTY_SAVED:
           case EVENT.PENALTY_CROSSBAR:
-            eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
+            eventPlayerAlias = await getEventPlayerAlias(event.idPlayer);
             subject = `:no_good: ${t.missedPenalty} ${eventTeam}!!!`;
             details = `${eventPlayerAlias} (${matchTime})`;
             if (period === PERIOD.PENALTY) {
-              details += ` (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
+              details += ` (${event.homePenaltyGoals} - ${event.awayPenaltyGoals})`;
             }
             break;
 
@@ -275,7 +274,7 @@ async function main(): Promise<void> {
         }
 
         if (interestingEvent) {
-          await postToSlack(subject, details);
+          await Slack.Post(subject, details);
           matchData.last_update = Date.now() / 1000;
         }
       }
