@@ -84,6 +84,8 @@ async function main(): Promise<void> {
     db.etag = {};
   }
 
+  const t = language[locale];
+
   const url = `${BASE}${ENDPOINTS.MATCHES}?idCompetition=${ID.COMPETITION}&idSeason=${ID.SEASON}&count=500&language=${locale}`;
   
   // Retrieve all matches
@@ -118,7 +120,7 @@ async function main(): Promise<void> {
 
       // Notify Slack & save data
       await postToSlack(
-        `:zap: ${language[locale][0]} ${match["Home"]["TeamName"][0]["Description"]} / ${match["Away"]["TeamName"][0]["Description"]} ${language[locale][1]}! `
+        `:zap: ${t.matchBetween} ${match["Home"]["TeamName"][0]["Description"]} / ${match["Away"]["TeamName"][0]["Description"]} ${t.isAboutToStart}! `
       );
     }
 
@@ -175,13 +177,13 @@ async function main(): Promise<void> {
           case EVENT.PERIOD_START:
             switch (period) {
               case PERIOD.FIRST_HALF:
-                subject = `:zap: ${language[locale][0]} ${homeTeamName} / ${awayTeamName} ${language[locale][8]}!`;
+                subject = `:zap: ${t.matchBetween} ${homeTeamName} / ${awayTeamName} ${t.hasStarted}!`;
                 break;
               case PERIOD.SECOND_HALF:
               case PERIOD.FIRST_ET:
               case PERIOD.SECOND_ET:
               case PERIOD.PENALTY:
-                subject = `:runner: ${language[locale][0]} ${homeTeamName} / ${awayTeamName} ${language[locale][11]}`;
+                subject = `:runner: ${t.matchBetween} ${homeTeamName} / ${awayTeamName} ${t.hasResumed}`;
                 break;
             }
             break;
@@ -189,23 +191,23 @@ async function main(): Promise<void> {
           case EVENT.PERIOD_END:
             switch (period) {
               case PERIOD.FIRST_HALF:
-                subject = `:toilet: ${language[locale][9]} ${score}`;
+                subject = `:toilet: ${t.halfTime} ${score}`;
                 details = matchTime;
                 break;
               case PERIOD.SECOND_HALF:
-                subject = `:stopwatch: ${language[locale][10]} ${score}`;
+                subject = `:stopwatch: ${t.fullTime} ${score}`;
                 details = matchTime;
                 break;
               case PERIOD.FIRST_ET:
-                subject = `:toilet: ${language[locale][12]} ${score}`;
+                subject = `:toilet: ${t.endOf1stET} ${score}`;
                 details = matchTime;
                 break;
               case PERIOD.SECOND_ET:
-                subject = `:stopwatch: ${language[locale][13]} ${score}`;
+                subject = `:stopwatch: ${t.endOf2ndET} ${score}`;
                 details = matchTime;
                 break;
               case PERIOD.PENALTY:
-                subject = `:stopwatch: ${language[locale][14]} ${score} (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
+                subject = `:stopwatch: ${t.endOfPenaltyShootout} ${score} (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
                 details = matchTime;
                 break;
             }
@@ -216,7 +218,7 @@ async function main(): Promise<void> {
           case EVENT.FREE_KICK_GOAL:
           case EVENT.PENALTY_GOAL:
             eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
-            subject = `:soccer: ${language[locale][6]} ${eventTeam}!!!`;
+            subject = `:soccer: ${t.goal} ${eventTeam}!!!`;
             details = `${eventPlayerAlias} (${matchTime}) ${score}`;
             if (period === PERIOD.PENALTY) {
               details += ` (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
@@ -225,34 +227,34 @@ async function main(): Promise<void> {
 
           case EVENT.OWN_GOAL:
             eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
-            subject = `:face_palm: ${language[locale][4]} ${eventTeam}!!!`;
+            subject = `:face_palm: ${t.ownGoal} ${eventTeam}!!!`;
             details = `${eventPlayerAlias} (${matchTime}) ${score}`;
             break;
 
           // Cards
           case EVENT.YELLOW_CARD:
             eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
-            subject = `:collision: ${language[locale][2]} ${eventTeam}`;
+            subject = `:collision: ${t.yellowCard} ${eventTeam}`;
             details = `${eventPlayerAlias} (${matchTime})`;
             break;
 
           case EVENT.SECOND_YELLOW_CARD_RED:
           case EVENT.STRAIGHT_RED:
             eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
-            subject = `:collision: ${language[locale][3]} ${eventTeam}`;
+            subject = `:collision: ${t.redCard} ${eventTeam}`;
             details = `${eventPlayerAlias} (${matchTime})`;
             break;
 
           // Penalties
           case EVENT.FOUL_PENALTY:
-            subject = `:exclamation: ${language[locale][5]} ${eventOtherTeam}!!!`;
+            subject = `:exclamation: ${t.penalty} ${eventOtherTeam}!!!`;
             break;
 
           case EVENT.PENALTY_MISSED:
           case EVENT.PENALTY_SAVED:
           case EVENT.PENALTY_CROSSBAR:
             eventPlayerAlias = await getEventPlayerAlias(event["IdPlayer"]);
-            subject = `:no_good: ${language[locale][7]} ${eventTeam}!!!`;
+            subject = `:no_good: ${t.missedPenalty} ${eventTeam}!!!`;
             details = `${eventPlayerAlias} (${matchTime})`;
             if (period === PERIOD.PENALTY) {
               details += ` (${event["HomePenaltyGoals"]} - ${event["AwayPenaltyGoals"]})`;
