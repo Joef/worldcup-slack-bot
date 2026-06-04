@@ -1,43 +1,46 @@
+import Icon, { IconName } from './icons';
+import { locale, TranslationKey, language } from './languages';
 
-const SLACK_TOKEN = process.env.SLACK_TOKEN ?? "";
-const SLACK_CHANNEL = process.env.SLACK_CHANNEL ?? "#worldcup";
-const SLACK_BOT_NAME = process.env.SLACK_BOT_NAME ?? "WorldCup Bot";
-const SLACK_BOT_AVATAR = process.env.SLACK_BOT_AVATAR ?? "";
+const SLACK_TOKEN = process.env.SLACK_TOKEN ?? '';
+const SLACK_CHANNEL = process.env.SLACK_CHANNEL ?? '#worldcup';
+const SLACK_BOT_NAME = process.env.SLACK_BOT_NAME ?? 'WorldCup Bot';
+const SLACK_BOT_AVATAR = process.env.SLACK_BOT_AVATAR ?? '';
 
-const SLACK_URL = "https://slack.com/api/chat.postMessage"
+const SLACK_URL = 'https://slack.com/api/chat.postMessage';
 
 /*
  * Post text and attachments to Slack
  */
-async function Post(
-  text: string,
-  attachmentsText = ""
-): Promise<void> {
-  const body: Record<string, unknown> = {
-    channel: SLACK_CHANNEL,
-    username: SLACK_BOT_NAME,
-    icon_url: SLACK_BOT_AVATAR,
-    unfurl_links: true,
-    text,
-  };
+export const slack = {
+  post: async (text: string, attachmentsText = ''): Promise<void> => {
+    const body: Record<string, unknown> = {
+      channel: SLACK_CHANNEL,
+      username: SLACK_BOT_NAME,
+      icon_url: SLACK_BOT_AVATAR,
+      unfurl_links: true,
+      text,
+    };
 
-  if (attachmentsText) {
-    body.attachments = [{ text: attachmentsText }];
-  }
+    if (attachmentsText) {
+      body.attachments = [{ text: attachmentsText }];
+    }
 
-  const response = await fetch(SLACK_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${SLACK_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+    const response = await fetch(SLACK_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${SLACK_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
 
-  const result = await response.json() as { ok: boolean; error?: string };
-  if (!result.ok) {
-    console.error("Slack API error:", result.error);
-  }
-}
-
-export const Slack = { Post };
+    const result = (await response.json()) as { ok: boolean; error?: string };
+    if (!result.ok) {
+      console.error('Slack API error:', result.error);
+    }
+  },
+  m: (icon: IconName, text: TranslationKey, meta?: string) => {
+    const t = language[locale];
+    return `${Icon[icon]} ${t[text]} ${meta}`;
+  },
+};

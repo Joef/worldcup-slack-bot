@@ -1,5 +1,13 @@
-import { z } from "zod";
-import { EventsResponseSchema, MatchEventSchema, MatchesResponseSchema, MatchSchema, MatchTeamSchema, PlayerResponseSchema, TeamNameSchema } from "./schema";
+import { z } from 'zod';
+import {
+  EventsResponseSchema,
+  MatchEventSchema,
+  MatchesResponseSchema,
+  MatchSchema,
+  MatchTeamSchema,
+  PlayerResponseSchema,
+  TeamNameSchema,
+} from './schema';
 
 export type TeamName = z.infer<typeof TeamNameSchema>;
 export type MatchTeam = z.infer<typeof MatchTeamSchema>;

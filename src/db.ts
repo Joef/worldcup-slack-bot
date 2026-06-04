@@ -1,11 +1,11 @@
-import * as fs from "fs";
-import { Storage } from "@google-cloud/storage";
+import * as fs from 'fs';
+import { Storage } from '@google-cloud/storage';
 
-const ENVIRONMENT = process.env.ENVIRONMENT ?? "local";
-const GCS_BUCKET = process.env.GCS_BUCKET ?? "worldcup-bot-state";
-const dbFileName = "./worldCupDB.json";
+const ENVIRONMENT = process.env.ENVIRONMENT ?? 'local';
+const GCS_BUCKET = process.env.GCS_BUCKET ?? 'worldcup-bot-state';
+const dbFileName = './worldCupDB.json';
 
-const storage = ENVIRONMENT === "prod" ? new Storage() : null;
+const storage = ENVIRONMENT === 'prod' ? new Storage() : null;
 const bucket = storage?.bucket(GCS_BUCKET);
 
 export interface MatchData {
@@ -22,19 +22,18 @@ export interface DB {
   [matchId: string]: unknown;
 }
 
-
 export async function loadDb(): Promise<DB> {
-  if (ENVIRONMENT === "prod") {
+  if (ENVIRONMENT === 'prod') {
     const [contents] = await bucket!.file(dbFileName).download();
-    return JSON.parse(contents.toString("utf-8"));
+    return JSON.parse(contents.toString('utf-8'));
   }
-  return JSON.parse(fs.readFileSync(dbFileName, "utf-8"));
+  return JSON.parse(fs.readFileSync(dbFileName, 'utf-8'));
 }
 
 export async function saveDb(db: DB): Promise<void> {
-  if (ENVIRONMENT === "prod") {
+  if (ENVIRONMENT === 'prod') {
     await bucket!.file(dbFileName).save(JSON.stringify(db), {
-      contentType: "application/json",
+      contentType: 'application/json',
     });
   } else {
     fs.writeFileSync(dbFileName, JSON.stringify(db));

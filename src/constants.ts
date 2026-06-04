@@ -1,22 +1,6 @@
 /**
  * FIFA API
  */
-
-export const BASE = 'https://api.fifa.com/api/v3/';
-
-export enum ENDPOINTS {
-  MATCHES = 'calendar/matches',
-  TIMELINES = 'timelines',
-  SQUAD = 'teams/43911/squad',
-  PLAYER = 'players'
-}
-
-// 2026 Women's World Cup
-export enum ID {
-  COMPETITION = 17,
-  SEASON = 285023,
-}
-
 export enum MATCH {
   FINISHED = 0,
   NOT_STARTED = 1,
