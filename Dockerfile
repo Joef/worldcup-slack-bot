@@ -4,7 +4,7 @@ RUN npm install -g pnpm
 COPY package*.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY tsconfig.json ./
-COPY *.ts ./
+COPY src/*.ts ./src/
 RUN pnpm build
 
 FROM node:22-alpine
