@@ -15,7 +15,7 @@ done
 
 if [[ -z "${SLACK_TOKEN_VALUE}" || -z "${SLACK_CHANNEL_VALUE}" ]]; then
   echo "Usage: ./deploy.sh -t <slack-token> -c <slack-channel>"
-  echo "  Example: ./deploy.sh --token xoxb-123456 --channel '#worldcup'"
+  echo "  Example: ./deploy.sh --token xoxb-123456 --channel 'worldcup'"
   exit 1
 fi
 

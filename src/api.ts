@@ -20,7 +20,7 @@ export enum ENDPOINTS {
   PLAYER = 'players',
 }
 
-// 2026 Women's World Cup
+// 2026 World Cup
 export enum ID {
   COMPETITION = 17,
   SEASON = 285023,
