@@ -31,6 +31,7 @@ async function main(): Promise<void> {
   logger.info(`Fetched ${matches.length} matches`);
 
   // Find live matches and update score
+  let dbDirty = false;
   for (const match of matches) {
     if (
       match.matchStatus === MATCH.LIVE
@@ -67,17 +68,22 @@ async function main(): Promise<void> {
           `${home.teamName[0].description} / ${away.teamName[0].description} ${t.isAboutToStart}!`,
         ),
       );
+      dbDirty = true;
     }
 
     if (db.live_matches.includes(match.idMatch)) {
       const home = match.home!;
       const away = match.away!;
-      // Update score
-      (db[match.idMatch] as MatchData).score =
-        `${home.teamName[0].description} ${home.score} - ${away.score} ${away.teamName[0].description}`;
+      const matchData = db[match.idMatch] as MatchData;
+      const newScore = `${home.teamName[0].description} ${home.score} - ${away.score} ${away.teamName[0].description}`;
+      if (matchData.score !== newScore) {
+        matchData.score = newScore;
+        dbDirty = true;
+      }
     }
+  }
 
-    // Save immediately, to avoid loops
+  if (dbDirty) {
     await saveDb(db);
   }
 
@@ -241,6 +247,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  // logger.error(err instanceof Error ? err.stack ?? err.message : String(err));
+  logger.error(err instanceof Error ? err.stack ?? err.message : String(err));
   process.exit(1);
 });

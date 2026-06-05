@@ -3,7 +3,7 @@ import { Storage } from '@google-cloud/storage';
 
 const ENVIRONMENT = process.env.ENVIRONMENT ?? 'local';
 const GCS_BUCKET = process.env.GCS_BUCKET ?? 'worldcup-bot-state';
-const dbFileName = './worldCupDB.json';
+const dbFileName = 'worldCupDB.json';
 
 const storage = ENVIRONMENT === 'prod' ? new Storage() : null;
 const bucket = storage?.bucket(GCS_BUCKET);

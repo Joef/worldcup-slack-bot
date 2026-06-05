@@ -1,4 +1,4 @@
-const IS_PROD = process.env.ENVIRONMENT === 'PROD';
+const IS_PROD = process.env.ENVIRONMENT === 'prod';
 
 type Level = 'info' | 'warn' | 'error';
 

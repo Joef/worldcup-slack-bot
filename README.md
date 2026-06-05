@@ -24,4 +24,18 @@ It will post a message :
 * * * * * cd /path/to/folder && npx ts-node index.ts >> worldCupNotifier.log
 ```
 
-**License:** MIT
+### Google Cloud Commands
+
+```bash
+echo -n "xoxb-your-new-token" | gcloud secrets versions add slack-token --data-file=- --project=YOUR_PROJECT_ID
+
+echo -n "#your-channel" | gcloud secrets versions add slack-channel --data-file=- --project=YOUR_PROJECT_ID
+```
+
+Pause/resume job
+
+```bash
+gcloud scheduler jobs pause worldcup-bot-trigger --location=us-central1 --project=YOUR_PROJECT_ID
+
+gcloud scheduler jobs resume worldcup-bot-trigger --location=us-central1 --project=YOUR_PROJECT_ID
+```
