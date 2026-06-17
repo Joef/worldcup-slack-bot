@@ -16,7 +16,7 @@ export const BASE = 'https://api.fifa.com/api/v3/';
 export enum ENDPOINTS {
   MATCHES = 'calendar/matches',
   TIMELINES = 'timelines',
-  SQUAD = 'teams/43911/squad',
+  SQUAD = 'teams',
   PLAYER = 'players',
 }
 
@@ -108,6 +108,7 @@ export async function getMatchEvents(
   logger.info(`GET ${url}`);
   const response = await getUrl(url, db);
   if (response === false) return [];
+
   return EventsResponseSchema.parse(JSON.parse(response)).events;
 }
 
@@ -172,16 +173,16 @@ export function parsePeriodEnd(
 
   switch (period) {
     case PERIOD.FIRST_HALF:
-      output.message = slack.m('toilet', 'halfTime', score);
+      output.message = slack.m('clock6', 'halfTime', score);
       break;
     case PERIOD.SECOND_HALF:
-      output.message = slack.m('stopwatch', 'fullTime', score);
+      output.message = slack.m('clock12', 'fullTime', score);
       break;
     case PERIOD.FIRST_ET:
-      output.message = slack.m('toilet', 'endOf1stET', score);
+      output.message = slack.m('clock6', 'endOf1stET', score);
       break;
     case PERIOD.SECOND_ET:
-      output.message = slack.m('stopwatch', 'endOf2ndET', score);
+      output.message = slack.m('clock12', 'endOf2ndET', score);
       break;
     case PERIOD.PENALTY:
       output.message = slack.m(
@@ -195,7 +196,7 @@ export function parsePeriodEnd(
 }
 
 export type PlayerInfo = {
-  playerId: string;
+  playerId?: string;
   db: DB;
   eventTeam: string;
 };
@@ -212,16 +213,21 @@ export async function parsePlayerEvent(
     meta?: string;
   } = { includeTime: true },
 ): Promise<Output> {
+  if (!playerInfo.playerId) {
+    return { message: '' };
+  }
+
   const { playerId, db, eventTeam } = playerInfo;
   const { score, matchTimeInfo } = eventInfo;
   logger.info(`Event: ${text} — ${eventTeam}`);
   const eventPlayerAlias = await getEventPlayerAlias(playerId, db);
+  const meta = options.meta ?? '';
   return {
     message: slack.m(
       icon,
       text,
       `${eventTeam}${options?.includeExclamation ? '!!!' : ''}`,
     ),
-    details: `${eventPlayerAlias} ${options.includeTime ? `(${matchTimeInfo})` : ''} ${options.includeScore ? score : ''} ${options.meta}`,
+    details: `${eventPlayerAlias} ${options.includeTime ? `(${matchTimeInfo})` : ''} ${options.includeScore ? score : ''} ${meta}`,
   };
 }

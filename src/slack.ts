@@ -1,11 +1,11 @@
-import Icon, { IconName } from './icons';
+import { Icon, IconName } from './icons';
 import { locale, TranslationKey, language } from './languages';
 import { logger } from './logger';
 
 const SLACK_TOKEN = process.env.SLACK_TOKEN ?? '';
 const SLACK_CHANNEL = process.env.SLACK_CHANNEL ?? '#worldcup';
 const SLACK_BOT_NAME = process.env.SLACK_BOT_NAME ?? 'WorldCup Bot';
-const SLACK_BOT_AVATAR = process.env.SLACK_BOT_AVATAR ?? '';
+const SLACK_BOT_AVATAR = process.env.SLACK_BOT_AVATAR ?? 'https://i.imgur.com/EDBw5fN.png';
 
 const SLACK_URL = 'https://slack.com/api/chat.postMessage';
 
@@ -40,7 +40,7 @@ export const slack = {
       logger.error(`Slack API error: ${result.error}`);
     }
   },
-  m: (icon: IconName, text: TranslationKey, meta?: string) => {
+  m: (icon: IconName, text: TranslationKey, meta: string = '') => {
     const t = language[locale];
     return `${Icon[icon]} ${t[text]} ${meta}`;
   },

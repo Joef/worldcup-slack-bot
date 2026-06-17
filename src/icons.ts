@@ -1,6 +1,9 @@
 export type IconName =
+  | 'arrow_up_down'
+  | 'beers'
   | 'collision'
   | 'exclamation'
+  | 'face_exhaling'
   | 'face_palm'
   | 'large_yellow_square'
   | 'large_red_square'
@@ -8,21 +11,126 @@ export type IconName =
   | 'runner'
   | 'soccer'
   | 'stopwatch'
-  | 'toilet'
+  | 'clock6'
+  | 'clock12'
   | 'zap';
 
-const Icon: Record<IconName, string> = {
+export const Icon: Record<IconName, string> = {
+  arrow_up_down: ':arrow_up_down:',
+  beers: ':beers:',
+  clock6: ':clock6:',
+  clock12: ':clock12:',
   collision: ':collision:',
   exclamation: ':exclamation:',
+  face_exhaling: ':face_exhaling:',
   face_palm: ':face_palm:',
-  large_yellow_square: ':large_yellow_square',
-  large_red_square: ':large_red_square',
+  large_yellow_square: ':large_yellow_square:',
+  large_red_square: ':large_red_square:',
   no_good: ':no_good:',
   runner: ':runner:',
   soccer: ':soccer:',
   stopwatch: ':stopwatch:',
-  toilet: ':toilet:',
   zap: ':zap:',
 };
 
-export default Icon;
+export type CountryName =
+  | 'ALG'
+  | 'ARG'
+  | 'AUS'
+  | 'AUT'
+  | 'BEL'
+  | 'BIH'
+  | 'BRA'
+  | 'CPV'
+  | 'CAN'
+  | 'COL'
+  | 'COD'
+  | 'CIV'
+  | 'CRO'
+  | 'CUW'
+  | 'CZE'
+  | 'ECU'
+  | 'EGY'
+  | 'ENG'
+  | 'FRA'
+  | 'GER'
+  | 'GHA'
+  | 'HAI'
+  | 'IRN'
+  | 'IRQ'
+  | 'JPN'
+  | 'JOR'
+  | 'KOR'
+  | 'MEX'
+  | 'MAR'
+  | 'NED'
+  | 'NZL'
+  | 'NOR'
+  | 'PAN'
+  | 'PAR'
+  | 'POR'
+  | 'QAT'
+  | 'KSA'
+  | 'SCO'
+  | 'SEN'
+  | 'RSA'
+  | 'ESP'
+  | 'SWE'
+  | 'SUI'
+  | 'TUN'
+  | 'TUR'
+  | 'URU'
+  | 'USA'
+  | 'UZB'
+
+export const CountryIcon: Record<CountryName, string> = {
+  CAN: ':flag-ca:',
+  MEX: ':flag-mx:',
+  USA: ':flag-us:',
+  ALG: ':flag-dz:',
+  ARG: ':flag-ar:',
+  AUS: ':flag-au:',
+  AUT: ':flag-at:',
+  BEL: ':flag-be:',
+  BIH: ':flag-ba:',
+  BRA: ':flag-br:',
+  CPV: ':flag-cv:',
+  COL: ':flag-co:',
+  COD: ':flag-cd:',
+  CIV: ':flag-ci:',
+  CRO: ':flag-hr:',
+  CUW: ':flag-cw:',
+  CZE: ':flag-cz:',
+  ECU: ':flag-ec:',
+  EGY: ':flag-eg:',
+  ENG: ':flag-england:',
+  FRA: ':flag-fr:',
+  GER: ':flag-de:',
+  GHA: ':flag-gh:',
+  HAI: ':flag-ht:',
+  IRN: ':flag-ir:',
+  IRQ: ':flag-iq:',
+  JPN: ':flag-jp:',
+  JOR: ':flag-jo:',
+  KOR: ':flag-kr:',
+  MAR: ':flag-ma:',
+  NED: ':flag-nl:',
+  NZL: ':flag-nz:',
+  NOR: ':flag-no:',
+  PAN: ':flag-pa:',
+  PAR: ':flag-py:',
+  POR: ':flag-pt:',
+  QAT: ':flag-qa:',
+  KSA: ':flag-sa:',
+  SCO: ':flag-scotland:',
+  SEN: ':flag-sn:',
+  RSA: ':flag-za:',
+  ESP: ':flag-es:',
+  SWE: ':flag-se:',
+  SUI: ':flag-ch:',
+  TUN: ':flag-tn:',
+  TUR: ':flag-tr:',
+  URU: ':flag-uy:',
+  UZB: ':flag-uz:',
+}
+

@@ -14,9 +14,15 @@ import {
   parsePlayerEvent,
   PlayerInfo,
 } from './api';
+import { CountryIcon, CountryName } from './icons';
+
+const IS_PROD = process.env.ENVIRONMENT === 'prod';
+const DEBUG = process.env.DEBUG === 'true';
+const DEBUG_ID = process.env.DEBUG_ID ?? '';
 
 async function main(): Promise<void> {
-  logger.info('Bot run started');
+  const runStart = Date.now();
+  logger.info(`Run started - ${new Date().toISOString()}`);
   const db: DB = await loadDb();
 
   const t = language[locale];
@@ -30,11 +36,13 @@ async function main(): Promise<void> {
   const matches = await getMatches(db);
   logger.info(`Fetched ${matches.length} matches`);
 
+  logger.info(`${db.live_matches.length} Live match(es): [${db.live_matches}]`)
+
   // Find live matches and update score
   let dbDirty = false;
   for (const match of matches) {
     if (
-      match.matchStatus === MATCH.LIVE
+      (match.matchStatus === MATCH.LIVE || (DEBUG && match.idMatch === DEBUG_ID))
       &&
       !db.live_matches.includes(match.idMatch)
     ) {
@@ -42,22 +50,30 @@ async function main(): Promise<void> {
       const home = match.home!;
       const away = match.away!;
 
+      const homeTeamName = home.teamName[0].description;
+      const awayTeamName = away.teamName[0].description;
+
+      const homeTeamNameIcon = CountryIcon[home.abbreviation as CountryName];
+      const awayTeamNameIcon = CountryIcon[away.abbreviation as CountryName];
+
       logger.info(
         `New live match: ${home.teamName[0].description} vs ${away.teamName[0].description} (${match.idMatch})`,
       );
       db.live_matches.push(match.idMatch);
 
+      const lastUpdate = Date.now() / 1000;
+
       (db[match.idMatch] as MatchData) = {
         stage_id: match.idStage,
         teamsById: {
-          [home.idTeam]: home.teamName[0].description,
-          [away.idTeam]: away.teamName[0].description,
+          [home.idTeam]: `${homeTeamNameIcon} ${homeTeamName}`,
+          [away.idTeam]: `${awayTeamNameIcon} ${awayTeamName}`,
         },
         teamsByHomeAway: {
-          home: home.teamName[0].description,
-          away: away.teamName[0].description,
+          home: `${homeTeamName} ${homeTeamNameIcon}`,
+          away: `${awayTeamNameIcon}  ${awayTeamName}`,
         },
-        last_update: Date.now() / 1000,
+        last_update: DEBUG ? lastUpdate - 100000 : lastUpdate,
       };
 
       // Notify Slack & save data
@@ -65,7 +81,7 @@ async function main(): Promise<void> {
         slack.m(
           'zap',
           'matchBetween',
-          `${home.teamName[0].description} / ${away.teamName[0].description} ${t.isAboutToStart}!`,
+          `${homeTeamName} ${homeTeamNameIcon} - ${awayTeamNameIcon} ${awayTeamName} ${t.isAboutToStart}!`,
         ),
       );
       dbDirty = true;
@@ -75,7 +91,7 @@ async function main(): Promise<void> {
       const home = match.home!;
       const away = match.away!;
       const matchData = db[match.idMatch] as MatchData;
-      const newScore = `${home.teamName[0].description} ${home.score} - ${away.score} ${away.teamName[0].description}`;
+      const newScore = `${CountryIcon[home.abbreviation as CountryName]} ${home.teamName[0].description} ${home.score} - ${away.score} ${away.teamName[0].description} ${CountryIcon[away.abbreviation as CountryName]}`;
       if (matchData.score !== newScore) {
         matchData.score = newScore;
         dbDirty = true;
@@ -106,8 +122,11 @@ async function main(): Promise<void> {
         const matchTime = event.matchMinute;
 
         const teamsById = { ...matchData.teamsById };
-        const eventTeam = teamsById[event.idTeam];
-        delete teamsById[event.idTeam];
+        let eventTeam = '';;
+        if (event.idTeam) {
+          eventTeam = teamsById[event.idTeam];
+          delete teamsById[event.idTeam];
+        }
 
         const eventOtherTeam = Object.values(teamsById)[0];
 
@@ -115,7 +134,7 @@ async function main(): Promise<void> {
 
         let output: Output = { message: '', details: '' };
         let interestingEvent = true;
-        const matchInfo = `${homeTeamName} / ${awayTeamName}`;
+        const matchInfo = `${homeTeamName} - ${awayTeamName}`;
 
         const info: EventInfo = {
           period,
@@ -142,6 +161,12 @@ async function main(): Promise<void> {
             );
 
             break;
+          case EVENT.HYDRATION_BREAK:
+            output = {
+              message: slack.m('beers', 'hydrationBreak'),
+              details: `${matchTime}`,
+            };
+            break;
 
           // Goals
           case EVENT.GOAL:
@@ -150,6 +175,7 @@ async function main(): Promise<void> {
             output = await parsePlayerEvent(player, info, 'soccer', 'goal', {
               includeScore: true,
               includeExclamation: true,
+              includeTime: true,
             });
             break;
 
@@ -162,6 +188,7 @@ async function main(): Promise<void> {
               {
                 includeScore: true,
                 includeExclamation: true,
+                includeTime: true,
               },
             );
             break;
@@ -173,6 +200,9 @@ async function main(): Promise<void> {
               info,
               'large_yellow_square',
               'yellowCard',
+              {
+                includeTime: true
+              }
             );
             break;
 
@@ -183,6 +213,9 @@ async function main(): Promise<void> {
               info,
               'large_red_square',
               'redCard',
+              {
+                includeTime: true
+              }
             );
             break;
 
@@ -217,9 +250,15 @@ async function main(): Promise<void> {
               },
             );
             break;
+          // case EVENT.SUBSTITUTION:
+          //   output = {
+          //     message: slack.m('arrow_up_down', 'substitution')
+          //   }
+          //   break;
 
           // End of live match
           case EVENT.END_OF_GAME:
+            logger.info(`End of game, removing live_match(${key})`);
             db.live_matches.splice(key, 1);
             key--;
             delete db[matchId];
@@ -235,18 +274,48 @@ async function main(): Promise<void> {
           await slack.post(output.message, output.details);
           matchData.last_update = Date.now() / 1000;
         }
+
       }
     }
+    // remove from live if end of game.
+    const match = matches.findIndex((m) => m.idMatch === matchId);
+    if (match >= 0 && matches[match].matchStatus === MATCH.FINISHED) {
+      logger.info(`Removing live_match(${key})`);
+      db.live_matches.splice(key, 1);
+      key--;
+      delete db[matchId];
+    }
+
   }
 
-  logger.info('Bot run complete');
+  logger.info(`Run complete - ${new Date().toISOString()} (${Date.now() - runStart}ms)`);
 
   // Record state for next run
   await saveDb(db);
-  process.exit(0);
+  if (IS_PROD) {
+    process.exit(0);
+  }
 }
 
-main().catch((err) => {
-  logger.error(err instanceof Error ? err.stack ?? err.message : String(err));
-  process.exit(1);
-});
+
+
+if (IS_PROD) {
+  main()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      logger.error(err instanceof Error ? err.stack ?? err.message : String(err));
+      process.exit(1);
+    });
+} else {
+  async function loop() {
+    try {
+      await main();
+    } catch (err) {
+      logger.error(err instanceof Error ? (err as Error).stack ?? (err as Error).message : String(err));
+    } finally {
+      setTimeout(loop, 60 * 1000);
+    }
+  }
+
+  loop();
+}

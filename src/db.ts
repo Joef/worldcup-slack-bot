@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import { Storage } from '@google-cloud/storage';
+import { logger } from './logger';
 
 const ENVIRONMENT = process.env.ENVIRONMENT ?? 'local';
 const GCS_BUCKET = process.env.GCS_BUCKET ?? 'worldcup-bot-state';
@@ -31,6 +32,7 @@ export async function loadDb(): Promise<DB> {
 }
 
 export async function saveDb(db: DB): Promise<void> {
+  logger.info('Writing to db');
   if (ENVIRONMENT === 'prod') {
     await bucket!.file(dbFileName).save(JSON.stringify(db), {
       contentType: 'application/json',

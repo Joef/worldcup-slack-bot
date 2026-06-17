@@ -13,8 +13,10 @@ export const MatchTeamSchema = z
     IdTeam: z.string(),
     TeamName: z.array(TeamNameSchema),
     Score: z.number().nullable(),
+    Abbreviation: z.string(),
   })
   .transform((d) => ({
+    abbreviation: d.Abbreviation,
     idTeam: d.IdTeam,
     teamName: d.TeamName,
     score: d.Score ?? 0,
@@ -50,8 +52,8 @@ export const MatchEventSchema = z
     Period: z.number(),
     Timestamp: z.string(),
     MatchMinute: z.string(),
-    IdTeam: z.string(),
-    IdPlayer: z.string(),
+    IdTeam: z.string().optional(),
+    IdPlayer: z.string().optional(),
     HomeGoals: z.number(),
     AwayGoals: z.number(),
     HomePenaltyGoals: z.number(),

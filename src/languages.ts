@@ -11,6 +11,8 @@ export interface Translations {
   yellowCard: string;
   redCard: string;
   ownGoal: string;
+  hydrationBreak: string;
+  hydrationResume: string;
   penalty: string;
   goal: string;
   missedPenalty: string;
@@ -21,6 +23,7 @@ export interface Translations {
   endOf1stET: string;
   endOf2ndET: string;
   endOfPenaltyShootout: string;
+  substitution: string;
 }
 
 export type TranslationKey = keyof Translations;
@@ -34,6 +37,8 @@ export const language: Record<LOCALE, Translations> = {
     ownGoal: 'But contre son camp',
     penalty: 'Pénalty',
     goal: 'BUUUUUT',
+    hydrationBreak: '',
+    hydrationResume: '',
     missedPenalty: 'Pénalty manqué',
     hasStarted: 'commence',
     halfTime: 'Mi-temps',
@@ -42,6 +47,7 @@ export const language: Record<LOCALE, Translations> = {
     endOf1stET: 'Mi-temps de la prolongation',
     endOf2ndET: 'Fin de la prolongation',
     endOfPenaltyShootout: 'Fin de la séance de tirs au but',
+    substitution: '',
   },
   [LOCALE.EN]: {
     matchBetween: 'The match between',
@@ -51,6 +57,8 @@ export const language: Record<LOCALE, Translations> = {
     ownGoal: 'Own goal',
     penalty: 'Penalty',
     goal: 'GOOOOAL',
+    hydrationBreak: 'Hydration Break, brought to you by Lenovo and Powerade',
+    hydrationResume: 'Get back here, American!',
     missedPenalty: 'Missed penalty',
     hasStarted: 'has started',
     halfTime: 'HALF TIME',
@@ -59,6 +67,7 @@ export const language: Record<LOCALE, Translations> = {
     endOf1stET: 'END OF 1ST ET',
     endOf2ndET: 'END OF 2ND ET',
     endOfPenaltyShootout: 'END OF PENALTY SHOOTOUT',
+    substitution: 'Substitution',
   },
   [LOCALE.ES]: {
     matchBetween: 'El partido entre',
@@ -71,10 +80,13 @@ export const language: Record<LOCALE, Translations> = {
     missedPenalty: 'Penalti fallado',
     hasStarted: 'ha comenzado',
     halfTime: 'DESCANSO',
+    hydrationBreak: '',
+    hydrationResume: '',
     fullTime: 'TIEMPO REGLAMENTARIO',
     hasResumed: 'ha reanudado',
     endOf1stET: 'FIN DE LA PRÓRROGA 1',
     endOf2ndET: 'FIN DE LA PRÓRROGA 2',
     endOfPenaltyShootout: 'FIN DE LA TANDA DE PENALTIS',
+    substitution: '',
   },
 };
