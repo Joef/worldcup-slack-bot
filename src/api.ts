@@ -129,7 +129,6 @@ export interface Output {
 }
 
 export function parsePeriodStart(period: number, matchInfo: string): Output {
-  logger.info(`Event: period start (period ${period}) — ${matchInfo}`);
   const t = language[locale];
   switch (period) {
     case PERIOD.FIRST_HALF:
@@ -168,7 +167,7 @@ export function parsePeriodEnd(
   penalties?: string,
 ): Output {
   const { period, score, matchTimeInfo } = eventInfo;
-  logger.info(`Event: period end (period ${period})`);
+
   const output: Output = { message: '', details: matchTimeInfo };
 
   switch (period) {

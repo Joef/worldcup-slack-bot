@@ -3,6 +3,7 @@ export type IconName =
   | 'beers'
   | 'collision'
   | 'exclamation'
+  | 'eyes'
   | 'face_exhaling'
   | 'face_palm'
   | 'large_yellow_square'
@@ -22,10 +23,11 @@ export const Icon: Record<IconName, string> = {
   clock12: ':clock12:',
   collision: ':collision:',
   exclamation: ':exclamation:',
+  eyes: ':eyes:',
   face_exhaling: ':face_exhaling:',
   face_palm: ':face_palm:',
-  large_yellow_square: ':large_yellow_square:',
-  large_red_square: ':large_red_square:',
+  large_yellow_square: ':large_yellow_circle:',
+  large_red_square: ':large_red_circle:',
   no_good: ':no_good:',
   runner: ':runner:',
   soccer: ':soccer:',

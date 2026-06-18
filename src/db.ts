@@ -10,6 +10,7 @@ const storage = ENVIRONMENT === 'prod' ? new Storage() : null;
 const bucket = storage?.bucket(GCS_BUCKET);
 
 export interface MatchData {
+  events: Array<string>;
   stage_id: string;
   teamsById: Record<string, string>;
   teamsByHomeAway: { home: string; away: string };

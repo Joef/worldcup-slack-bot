@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { MATCH, EVENT, PERIOD } from './constants';
+import { MATCH, EVENT, PERIOD, INTERESTING_EVENTS } from './constants';
 import { DB, loadDb, MatchData, saveDb } from './db';
 import { locale, language } from './languages';
 import { logger } from './logger';
@@ -65,6 +65,7 @@ async function main(): Promise<void> {
 
       (db[match.idMatch] as MatchData) = {
         stage_id: match.idStage,
+        events: [],
         teamsById: {
           [home.idTeam]: `${homeTeamNameIcon} ${homeTeamName}`,
           [away.idTeam]: `${awayTeamNameIcon} ${awayTeamName}`,
@@ -75,7 +76,7 @@ async function main(): Promise<void> {
         },
         last_update: DEBUG ? lastUpdate - 100000 : lastUpdate,
       };
-
+      logger.info(JSON.stringify(match.official))
       // Notify Slack & save data
       await slack.post(
         slack.m(
@@ -83,6 +84,7 @@ async function main(): Promise<void> {
           'matchBetween',
           `${homeTeamName} ${homeTeamNameIcon} - ${awayTeamNameIcon} ${awayTeamName} ${t.isAboutToStart}!`,
         ),
+        `Match Number #${match.matchNumber}\n${match.stadium.name}  ${CountryIcon[match.stadium.idCountry as CountryName]} ${match.stadium.city}\nOfficial ${CountryIcon[match.official.idCountry as CountryName]} ${match.official.name}`
       );
       dbDirty = true;
     }
@@ -115,10 +117,20 @@ async function main(): Promise<void> {
 
     for (const event of events) {
       const eventType = event.type;
+      const eventId = event.id;
       const period = event.period;
       const eventTimeSeconds = new Date(event.timestamp).getTime() / 1000;
 
-      if (eventTimeSeconds > lastUpdateSeconds) {
+      const eventInfo = `${event.matchMinute} - ${event.typeDescription} - ${event.description}`;
+
+      if (!INTERESTING_EVENTS.includes(eventType)) {
+        // not interesting 
+        // logger.info(`--X ${eventInfo}`);
+        continue;
+      }
+      logger.info(`--> ${eventInfo}`);
+
+      if (eventTimeSeconds > lastUpdateSeconds || !matchData.events.includes(eventId)) {
         const matchTime = event.matchMinute;
 
         const teamsById = { ...matchData.teamsById };
@@ -168,6 +180,12 @@ async function main(): Promise<void> {
             };
             break;
 
+          case EVENT.PENALTY_AWARDED:
+            output = {
+              message: slack.m('eyes', 'penalty'),
+              details: `${matchTime}`,
+            };
+            break;
           // Goals
           case EVENT.GOAL:
           case EVENT.FREE_KICK_GOAL:
@@ -272,6 +290,7 @@ async function main(): Promise<void> {
 
         if (interestingEvent) {
           await slack.post(output.message, output.details);
+          matchData.events.push(eventId);
           matchData.last_update = Date.now() / 1000;
         }
 
@@ -279,11 +298,11 @@ async function main(): Promise<void> {
     }
     // remove from live if end of game.
     const match = matches.findIndex((m) => m.idMatch === matchId);
-    if (match >= 0 && matches[match].matchStatus === MATCH.FINISHED) {
+    if (match >= 0 && matches[match].matchStatus === MATCH.FINISHED && db.live_matches.length > 0) {
       logger.info(`Removing live_match(${key})`);
       db.live_matches.splice(key, 1);
-      key--;
       delete db[matchId];
+      break; // exit the loop for now
     }
 
   }
