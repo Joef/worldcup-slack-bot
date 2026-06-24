@@ -1,3 +1,4 @@
+import { PlayerInfo, EventInfo, Output } from './api';
 import { Icon, IconName } from './icons';
 import { locale, TranslationKey, language } from './languages';
 import { logger } from './logger';
@@ -25,7 +26,7 @@ export const slack = {
     if (attachmentsText) {
       body.attachments = [{ text: attachmentsText }];
     }
-    logger.info(text);
+    logger.info(`Text: ${text}`);
     const response = await fetch(SLACK_URL, {
       method: 'POST',
       headers: {
@@ -40,8 +41,12 @@ export const slack = {
       logger.error(`Slack API error: ${result.error}`);
     }
   },
-  m: (icon: IconName, text: TranslationKey, meta: string = '') => {
+  m: (icon: IconName, text: TranslationKey, options: {
+    includeExclamation?: boolean;
+    meta?: string;
+  } = { meta: '', includeExclamation: false }) => {
     const t = language[locale];
-    return `${Icon[icon]} ${t[text]} ${meta}`;
+    const meta = options.meta ? ` ${options.meta} -` : '';
+    return `${Icon[icon]} ${meta} ${t[text]}${options.includeExclamation ? '!!!' : ''}`;
   },
 };

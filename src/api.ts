@@ -116,11 +116,12 @@ export async function getEventPlayerAlias(
   eventPlayerId: string,
   db: DB,
 ): Promise<string> {
-  const url = buildUrl(`${ENDPOINTS.PLAYER}/${eventPlayerId}`);
+  const url = buildUrl(`${ENDPOINTS.PLAYER}/${eventPlayerId}?language=${locale}`);
+  logger.info(`GET ${url}`);
   const response = PlayerResponseSchema.parse(
     JSON.parse((await getUrl(url, db, true)) as string),
   );
-  return response.alias[0].description;
+  return response.alias[0]?.description ?? '';
 }
 
 export interface Output {
@@ -134,10 +135,10 @@ export function parsePeriodStart(period: number, matchInfo: string): Output {
     case PERIOD.FIRST_HALF:
       return {
         message: slack.m(
-          'zap',
+          'stopwatch',
           'matchBetween',
-          `${matchInfo} ${t.hasStarted}!`,
-        ),
+        ) + ` ${t.hasStarted}!`,
+        details: matchInfo
       };
 
     case PERIOD.SECOND_HALF:
@@ -148,8 +149,8 @@ export function parsePeriodStart(period: number, matchInfo: string): Output {
         message: slack.m(
           'runner',
           'matchBetween',
-          `${matchInfo} ${t.hasResumed}`,
-        ),
+        ) + ` ${t.hasResumed}`,
+        details: matchInfo
       };
     default:
       return { message: '' };
@@ -168,26 +169,26 @@ export function parsePeriodEnd(
 ): Output {
   const { period, score, matchTimeInfo } = eventInfo;
 
-  const output: Output = { message: '', details: matchTimeInfo };
+  const output: Output = { message: '', details: `${score} ` };
 
   switch (period) {
     case PERIOD.FIRST_HALF:
-      output.message = slack.m('clock6', 'halfTime', score);
+      output.message = slack.m('clock6', 'halfTime', { meta: matchTimeInfo });
       break;
     case PERIOD.SECOND_HALF:
-      output.message = slack.m('clock12', 'fullTime', score);
+      output.message = slack.m('clock12', 'fullTime', { meta: matchTimeInfo });
       break;
     case PERIOD.FIRST_ET:
-      output.message = slack.m('clock6', 'endOf1stET', score);
+      output.message = slack.m('clock6', 'endOf1stET', { meta: matchTimeInfo });
       break;
     case PERIOD.SECOND_ET:
-      output.message = slack.m('clock12', 'endOf2ndET', score);
+      output.message = slack.m('clock12', 'endOf2ndET', { meta: matchTimeInfo });
       break;
     case PERIOD.PENALTY:
       output.message = slack.m(
         'stopwatch',
         'endOfPenaltyShootout',
-        `${score} (${penalties})`,
+        { meta: `${score} (${penalties})` },
       );
       break;
   }
@@ -213,20 +214,25 @@ export async function parsePlayerEvent(
   } = { includeTime: true },
 ): Promise<Output> {
   if (!playerInfo.playerId) {
-    return { message: '' };
+    logger.warn(`parsePlayerEvent called for "${text}" but playerId is missing — skipping`);
+    return { message: slack.m('soccer', 'goal', { meta: playerInfo.eventTeam ?? '' }) };;
   }
 
   const { playerId, db, eventTeam } = playerInfo;
   const { score, matchTimeInfo } = eventInfo;
-  logger.info(`Event: ${text} — ${eventTeam}`);
+  logger.info(`Event: ${text} — ${eventTeam} `);
   const eventPlayerAlias = await getEventPlayerAlias(playerId, db);
-  const meta = options.meta ?? '';
+
   return {
     message: slack.m(
       icon,
       text,
-      `${eventTeam}${options?.includeExclamation ? '!!!' : ''}`,
+      {
+        ...options,
+        meta: options.includeTime ? matchTimeInfo : ''
+      }
+
     ),
-    details: `${eventPlayerAlias} ${options.includeTime ? `(${matchTimeInfo})` : ''} ${options.includeScore ? score : ''} ${meta}`,
+    details: `${eventTeam} - ${eventPlayerAlias} \n${options.includeScore ? `\n${score}` : ''} `,
   };
 }

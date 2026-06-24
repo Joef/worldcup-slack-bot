@@ -71,20 +71,21 @@ async function main(): Promise<void> {
           [away.idTeam]: `${awayTeamNameIcon} ${awayTeamName}`,
         },
         teamsByHomeAway: {
-          home: `${homeTeamName} ${homeTeamNameIcon}`,
-          away: `${awayTeamNameIcon}  ${awayTeamName}`,
+          home: `${homeTeamNameIcon} ${homeTeamName} `,
+          away: `${awayTeamNameIcon} ${awayTeamName}`,
         },
         last_update: DEBUG ? lastUpdate - 100000 : lastUpdate,
       };
-      logger.info(JSON.stringify(match.official))
+
+      const officialCountry = CountryIcon[match.official.idCountry as CountryName] ?? '';
+
       // Notify Slack & save data
       await slack.post(
         slack.m(
           'zap',
           'matchBetween',
-          `${homeTeamName} ${homeTeamNameIcon} - ${awayTeamNameIcon} ${awayTeamName} ${t.isAboutToStart}!`,
-        ),
-        `Match Number #${match.matchNumber}\n${match.stadium.name}  ${CountryIcon[match.stadium.idCountry as CountryName]} ${match.stadium.city}\nOfficial ${CountryIcon[match.official.idCountry as CountryName]} ${match.official.name}`
+        ) + ` ${t.isAboutToStart}!`,
+        `_Match Number #${match.matchNumber}_\n\n${homeTeamNameIcon} ${homeTeamName} - ${awayTeamNameIcon} ${awayTeamName}\n\n${CountryIcon[match.stadium.idCountry as CountryName]} ${match.stadium.name} - ${match.stadium.city}\n${officialCountry} Official - ${match.official.name}`
       );
       dbDirty = true;
     }
@@ -142,7 +143,7 @@ async function main(): Promise<void> {
 
         const eventOtherTeam = Object.values(teamsById)[0];
 
-        const score = `${homeTeamName} ${event.homeGoals} - ${event.awayGoals} ${awayTeamName}`;
+        const score = `${event.homeGoals} ${homeTeamName}\n${event.awayGoals} ${awayTeamName}`;
 
         let output: Output = { message: '', details: '' };
         let interestingEvent = true;
@@ -160,6 +161,8 @@ async function main(): Promise<void> {
           eventTeam,
         };
 
+        let meta = '';
+
         switch (eventType) {
           // Timekeeping
           case EVENT.PERIOD_START:
@@ -173,30 +176,47 @@ async function main(): Promise<void> {
             );
 
             break;
+          case EVENT.WEATHER_DELAY:
+            output = {
+              message: slack.m('weather', 'weatherDelay', { meta: matchTime }),
+              details: info.score
+            };
+            break;
           case EVENT.HYDRATION_BREAK:
             output = {
-              message: slack.m('beers', 'hydrationBreak'),
-              details: `${matchTime}`,
+              message: slack.m('beers', 'hydrationBreak', { meta: matchTime }),
+              details: `_Brought to you by Lenovo and Powerade_`,
             };
             break;
 
           case EVENT.PENALTY_AWARDED:
             output = {
-              message: slack.m('eyes', 'penalty'),
-              details: `${matchTime}`,
+              message: slack.m('eyes', 'penalty', { meta: matchTime }),
             };
             break;
+
           // Goals
+          case EVENT.PENALTY_GOAL:
+            meta =
+              period === PERIOD.PENALTY
+                ? ` (${event.homePenaltyGoals} - ${event.awayPenaltyGoals})`
+                : '';
           case EVENT.GOAL:
           case EVENT.FREE_KICK_GOAL:
-          case EVENT.PENALTY_GOAL:
             output = await parsePlayerEvent(player, info, 'soccer', 'goal', {
               includeScore: true,
               includeExclamation: true,
               includeTime: true,
-            });
-            break;
+              meta,
+            })
 
+            break;
+          case EVENT.GOAL_DISALLOWED:
+            output = {
+              message: slack.m('no_good', 'goalDisallowed', { meta: matchTime }),
+              details: info.score
+            };
+            break;
           case EVENT.OWN_GOAL:
             output = await parsePlayerEvent(
               player,
@@ -232,7 +252,8 @@ async function main(): Promise<void> {
               'large_red_square',
               'redCard',
               {
-                includeTime: true
+                includeTime: true,
+                includeExclamation: true,
               }
             );
             break;
@@ -243,7 +264,10 @@ async function main(): Promise<void> {
               message: slack.m(
                 'exclamation',
                 'penalty',
-                `${eventOtherTeam}!!!`,
+                {
+                  meta: `${eventOtherTeam}`,
+                  includeExclamation: true
+                }
               ),
             };
             break;
@@ -251,7 +275,7 @@ async function main(): Promise<void> {
           case EVENT.PENALTY_MISSED:
           case EVENT.PENALTY_SAVED:
           case EVENT.PENALTY_CROSSBAR:
-            const meta =
+            meta =
               period === PERIOD.PENALTY
                 ? ` (${event.homePenaltyGoals} - ${event.awayPenaltyGoals})`
                 : '';
@@ -289,6 +313,11 @@ async function main(): Promise<void> {
         }
 
         if (interestingEvent) {
+          if (!output.message) {
+            logger.info(JSON.stringify({ output, player, info }));
+            continue;
+          }
+
           await slack.post(output.message, output.details);
           matchData.events.push(eventId);
           matchData.last_update = Date.now() / 1000;

@@ -14,6 +14,7 @@ export type IconName =
   | 'stopwatch'
   | 'clock6'
   | 'clock12'
+  | 'weather'
   | 'zap';
 
 export const Icon: Record<IconName, string> = {
@@ -27,11 +28,12 @@ export const Icon: Record<IconName, string> = {
   face_exhaling: ':face_exhaling:',
   face_palm: ':face_palm:',
   large_yellow_square: ':large_yellow_circle:',
-  large_red_square: ':large_red_circle:',
+  large_red_square: ':large_red_square:',
   no_good: ':no_good:',
   runner: ':runner:',
   soccer: ':soccer:',
   stopwatch: ':stopwatch:',
+  weather: ':thunder_cloud_and_rain:',
   zap: ':zap:',
 };
 

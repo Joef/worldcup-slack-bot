@@ -15,6 +15,7 @@ export interface Translations {
   hydrationResume: string;
   penalty: string;
   goal: string;
+  goalDisallowed: string;
   missedPenalty: string;
   hasStarted: string;
   halfTime: string;
@@ -24,6 +25,7 @@ export interface Translations {
   endOf2ndET: string;
   endOfPenaltyShootout: string;
   substitution: string;
+  weatherDelay: string;
 }
 
 export type TranslationKey = keyof Translations;
@@ -37,6 +39,7 @@ export const language: Record<LOCALE, Translations> = {
     ownGoal: 'But contre son camp',
     penalty: 'Pénalty',
     goal: 'BUUUUUT',
+    goalDisallowed: '',
     hydrationBreak: '',
     hydrationResume: '',
     missedPenalty: 'Pénalty manqué',
@@ -48,16 +51,18 @@ export const language: Record<LOCALE, Translations> = {
     endOf2ndET: 'Fin de la prolongation',
     endOfPenaltyShootout: 'Fin de la séance de tirs au but',
     substitution: '',
+    weatherDelay: '',
   },
   [LOCALE.EN]: {
-    matchBetween: 'The match between',
+    matchBetween: 'The match',
     isAboutToStart: 'is about to start',
     yellowCard: 'Yellow card',
-    redCard: 'Red card',
-    ownGoal: 'Own goal',
-    penalty: 'Penalty',
+    redCard: 'RED CARD',
+    ownGoal: 'OWN GOAL',
+    penalty: 'PENALTY',
     goal: 'GOOOOAL',
-    hydrationBreak: 'Hydration Break, brought to you by Lenovo and Powerade',
+    goalDisallowed: 'Goal Disallowed',
+    hydrationBreak: 'Hydration Break',
     hydrationResume: 'Get back here, American!',
     missedPenalty: 'Missed penalty',
     hasStarted: 'has started',
@@ -68,15 +73,17 @@ export const language: Record<LOCALE, Translations> = {
     endOf2ndET: 'END OF 2ND ET',
     endOfPenaltyShootout: 'END OF PENALTY SHOOTOUT',
     substitution: 'Substitution',
+    weatherDelay: 'Weather delay'
   },
   [LOCALE.ES]: {
-    matchBetween: 'El partido entre',
+    matchBetween: 'El partido',
     isAboutToStart: 'está a punto de comenzar',
     yellowCard: 'Tarjeta amarilla',
     redCard: 'Tarjeta roja',
     ownGoal: 'Gol en propia puerta',
     penalty: 'Penalti',
     goal: 'GOOOOOOOL',
+    goalDisallowed: '',
     missedPenalty: 'Penalti fallado',
     hasStarted: 'ha comenzado',
     halfTime: 'DESCANSO',
@@ -88,5 +95,6 @@ export const language: Record<LOCALE, Translations> = {
     endOf2ndET: 'FIN DE LA PRÓRROGA 2',
     endOfPenaltyShootout: 'FIN DE LA TANDA DE PENALTIS',
     substitution: '',
+    weatherDelay: ''
   },
 };
