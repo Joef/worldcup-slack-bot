@@ -6,7 +6,8 @@ import { logger } from './logger';
 const SLACK_TOKEN = process.env.SLACK_TOKEN ?? '';
 const SLACK_CHANNEL = process.env.SLACK_CHANNEL ?? '#worldcup';
 const SLACK_BOT_NAME = process.env.SLACK_BOT_NAME ?? 'WorldCup Bot';
-const SLACK_BOT_AVATAR = process.env.SLACK_BOT_AVATAR ?? 'https://i.imgur.com/EDBw5fN.png';
+const SLACK_BOT_AVATAR =
+  process.env.SLACK_BOT_AVATAR ?? 'https://i.imgur.com/EDBw5fN.png';
 
 const SLACK_URL = 'https://slack.com/api/chat.postMessage';
 
@@ -41,10 +42,14 @@ export const slack = {
       logger.error(`Slack API error: ${result.error}`);
     }
   },
-  m: (icon: IconName, text: TranslationKey, options: {
-    includeExclamation?: boolean;
-    meta?: string;
-  } = { meta: '', includeExclamation: false }) => {
+  m: (
+    icon: IconName,
+    text: TranslationKey,
+    options: {
+      includeExclamation?: boolean;
+      meta?: string;
+    } = { meta: '', includeExclamation: false },
+  ) => {
     const t = language[locale];
     const meta = options.meta ? ` ${options.meta} -` : '';
     return `${Icon[icon]} ${meta} ${t[text]}${options.includeExclamation ? '!!!' : ''}`;

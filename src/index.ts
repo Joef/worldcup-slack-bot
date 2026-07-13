@@ -1,6 +1,12 @@
 import 'dotenv/config';
-import { MATCH, EVENT, PERIOD, INTERESTING_EVENTS } from './constants';
-import { DB, loadDb, MatchData, saveDb } from './db';
+import {
+  MATCH,
+  EVENT,
+  PERIOD,
+  INTERESTING_EVENTS,
+  PENALTY_RESULT,
+} from './constants';
+import { DB, loadDb, MatchData, PenaltyResult, saveDb } from './db';
 import { locale, language } from './languages';
 import { logger } from './logger';
 import { slack } from './slack';
@@ -19,6 +25,9 @@ import { CountryIcon, CountryName } from './icons';
 const IS_PROD = process.env.ENVIRONMENT === 'prod';
 const DEBUG = process.env.DEBUG === 'true';
 const DEBUG_ID = process.env.DEBUG_ID ?? '';
+const START_TIME = process.env.DEBUG_TIME
+  ? Number(process.env.DEBUG_TIME)
+  : Date.now() / 1000;
 
 async function main(): Promise<void> {
   const runStart = Date.now();
@@ -36,14 +45,14 @@ async function main(): Promise<void> {
   const matches = await getMatches(db);
   logger.info(`Fetched ${matches.length} matches`);
 
-  logger.info(`${db.live_matches.length} Live match(es): [${db.live_matches}]`)
+  logger.info(`${db.live_matches.length} Live match(es): [${db.live_matches}]`);
 
   // Find live matches and update score
   let dbDirty = false;
   for (const match of matches) {
     if (
-      (match.matchStatus === MATCH.LIVE || (DEBUG && match.idMatch === DEBUG_ID))
-      &&
+      (match.matchStatus === MATCH.LIVE ||
+        (DEBUG && match.idMatch === DEBUG_ID)) &&
       !db.live_matches.includes(match.idMatch)
     ) {
       // Yay new match!
@@ -71,21 +80,39 @@ async function main(): Promise<void> {
           [away.idTeam]: `${awayTeamNameIcon} ${awayTeamName}`,
         },
         teamsByHomeAway: {
-          home: `${homeTeamNameIcon} ${homeTeamName} `,
-          away: `${awayTeamNameIcon} ${awayTeamName}`,
+          home: {
+            id: home.idTeam,
+            name: `${homeTeamNameIcon} ${homeTeamName} `,
+          },
+          away: {
+            id: away.idTeam,
+            name: `${awayTeamNameIcon} ${awayTeamName}`,
+          },
         },
-        last_update: DEBUG ? lastUpdate - 100000 : lastUpdate,
+        last_update: DEBUG ? START_TIME : lastUpdate,
+        penalties: {
+          home: {
+            name: homeTeamName,
+            flag: homeTeamNameIcon,
+            score: 0,
+            result: [],
+          },
+          away: {
+            name: awayTeamName,
+            flag: awayTeamNameIcon,
+            score: 0,
+            result: [],
+          },
+        },
       };
 
-      const officialCountry = CountryIcon[match.official.idCountry as CountryName] ?? '';
+      const officialCountry =
+        CountryIcon[match.official.idCountry as CountryName] ?? '';
 
       // Notify Slack & save data
       await slack.post(
-        slack.m(
-          'zap',
-          'matchBetween',
-        ) + ` ${t.isAboutToStart}!`,
-        `_Match Number #${match.matchNumber}_\n\n${homeTeamNameIcon} ${homeTeamName} - ${awayTeamNameIcon} ${awayTeamName}\n\n${CountryIcon[match.stadium.idCountry as CountryName]} ${match.stadium.name} - ${match.stadium.city}\n${officialCountry} Official - ${match.official.name}`
+        slack.m('zap', 'matchBetween') + ` ${t.isAboutToStart}!`,
+        `_Match Number #${match.matchNumber}_\n\n${homeTeamNameIcon} ${homeTeamName} - ${awayTeamNameIcon} ${awayTeamName}\n\n${CountryIcon[match.stadium.idCountry as CountryName]} ${match.stadium.name} - ${match.stadium.city}\n${officialCountry} Official - ${match.official.name}`,
       );
       dbDirty = true;
     }
@@ -107,11 +134,12 @@ async function main(): Promise<void> {
   }
 
   // Post update on live matches (events since last updated time)
+  const endedMatchIds = new Set<string>();
   for (let key = 0; key < db.live_matches.length; key++) {
     const matchId = db.live_matches[key];
     const matchData = db[matchId] as MatchData;
-    const homeTeamName = matchData.teamsByHomeAway.home;
-    const awayTeamName = matchData.teamsByHomeAway.away;
+    const homeTeamName = matchData.teamsByHomeAway.home.name;
+    const awayTeamName = matchData.teamsByHomeAway.away.name;
     const lastUpdateSeconds = matchData.last_update;
 
     const events = await getMatchEvents(matchData.stage_id, matchId, db);
@@ -122,20 +150,23 @@ async function main(): Promise<void> {
       const period = event.period;
       const eventTimeSeconds = new Date(event.timestamp).getTime() / 1000;
 
-      const eventInfo = `${event.matchMinute} - ${event.typeDescription} - ${event.description}`;
+      const eventInfo = `${period === PERIOD.PENALTY ? 'PK' : event.matchMinute} - ${event.typeDescription} - ${event.description}`;
 
       if (!INTERESTING_EVENTS.includes(eventType)) {
-        // not interesting 
+        // not interesting
         // logger.info(`--X ${eventInfo}`);
         continue;
       }
       logger.info(`--> ${eventInfo}`);
 
-      if (eventTimeSeconds > lastUpdateSeconds || !matchData.events.includes(eventId)) {
+      if (
+        eventTimeSeconds > lastUpdateSeconds ||
+        !matchData.events.includes(eventId)
+      ) {
         const matchTime = event.matchMinute;
 
         const teamsById = { ...matchData.teamsById };
-        let eventTeam = '';;
+        let eventTeam = '';
         if (event.idTeam) {
           eventTeam = teamsById[event.idTeam];
           delete teamsById[event.idTeam];
@@ -148,6 +179,20 @@ async function main(): Promise<void> {
         let output: Output = { message: '', details: '' };
         let interestingEvent = true;
         const matchInfo = `${homeTeamName} - ${awayTeamName}`;
+
+        if (PENALTY_RESULT.includes(event.type) && period === PERIOD.PENALTY) {
+          matchData.penalties.home.score = event.homePenaltyGoals;
+          matchData.penalties.away.score = event.awayPenaltyGoals;
+
+          const result: PenaltyResult =
+            eventType === EVENT.PENALTY_GOAL ? 'X' : 'O';
+
+          if (event.idTeam === matchData.teamsByHomeAway.home.id) {
+            matchData.penalties.home.result.push(result);
+          } else {
+            matchData.penalties.away.result.push(result);
+          }
+        }
 
         const info: EventInfo = {
           period,
@@ -170,25 +215,26 @@ async function main(): Promise<void> {
             break;
 
           case EVENT.PERIOD_END:
-            output = parsePeriodEnd(
-              info,
-              `${event.homePenaltyGoals} - ${event.awayPenaltyGoals}`,
-            );
+            output = parsePeriodEnd(info, matchData.penalties);
 
             break;
           case EVENT.WEATHER_DELAY:
             output = {
               message: slack.m('weather', 'weatherDelay', { meta: matchTime }),
-              details: info.score
+              details: info.score,
             };
             break;
+          /**
+           * Hydration Break notification
+           */
+          /*
           case EVENT.HYDRATION_BREAK:
             output = {
               message: slack.m('beers', 'hydrationBreak', { meta: matchTime }),
               details: `_Brought to you by Lenovo and Powerade_`,
             };
             break;
-
+          */
           case EVENT.PENALTY_AWARDED:
             output = {
               message: slack.m('eyes', 'penalty', { meta: matchTime }),
@@ -197,24 +243,26 @@ async function main(): Promise<void> {
 
           // Goals
           case EVENT.PENALTY_GOAL:
-            meta =
-              period === PERIOD.PENALTY
-                ? ` (${event.homePenaltyGoals} - ${event.awayPenaltyGoals})`
-                : '';
           case EVENT.GOAL:
           case EVENT.FREE_KICK_GOAL:
             output = await parsePlayerEvent(player, info, 'soccer', 'goal', {
-              includeScore: true,
+              includeScore: period !== PERIOD.PENALTY,
               includeExclamation: true,
               includeTime: true,
               meta,
-            })
+              penaltyPeriod: {
+                ...matchData.penalties,
+                active: period === PERIOD.PENALTY,
+              },
+            });
 
             break;
           case EVENT.GOAL_DISALLOWED:
             output = {
-              message: slack.m('no_good', 'goalDisallowed', { meta: matchTime }),
-              details: info.score
+              message: slack.m('no_good', 'goalDisallowed', {
+                meta: matchTime,
+              }),
+              details: info.score,
             };
             break;
           case EVENT.OWN_GOAL:
@@ -239,8 +287,8 @@ async function main(): Promise<void> {
               'large_yellow_square',
               'yellowCard',
               {
-                includeTime: true
-              }
+                includeTime: true,
+              },
             );
             break;
 
@@ -254,31 +302,23 @@ async function main(): Promise<void> {
               {
                 includeTime: true,
                 includeExclamation: true,
-              }
+              },
             );
             break;
 
           // Penalties
           case EVENT.FOUL_PENALTY:
             output = {
-              message: slack.m(
-                'exclamation',
-                'penalty',
-                {
-                  meta: `${eventOtherTeam}`,
-                  includeExclamation: true
-                }
-              ),
+              message: slack.m('exclamation', 'penalty', {
+                meta: `${eventOtherTeam}`,
+                includeExclamation: true,
+              }),
             };
             break;
 
           case EVENT.PENALTY_MISSED:
           case EVENT.PENALTY_SAVED:
           case EVENT.PENALTY_CROSSBAR:
-            meta =
-              period === PERIOD.PENALTY
-                ? ` (${event.homePenaltyGoals} - ${event.awayPenaltyGoals})`
-                : '';
             output = await parsePlayerEvent(
               player,
               info,
@@ -287,8 +327,12 @@ async function main(): Promise<void> {
               {
                 includeExclamation: true,
                 includeScore: false,
-                includeTime: period !== PERIOD.PENALTY,
+                includeTime: true,
                 meta,
+                penaltyPeriod: {
+                  ...matchData.penalties,
+                  active: period === PERIOD.PENALTY,
+                },
               },
             );
             break;
@@ -298,12 +342,12 @@ async function main(): Promise<void> {
           //   }
           //   break;
 
-          // End of live match
+          // End of live match, sometimes redundant with EVENT.PERIOD_END or even before
           case EVENT.END_OF_GAME:
-            logger.info(`End of game, removing live_match(${key})`);
-            db.live_matches.splice(key, 1);
-            key--;
-            delete db[matchId];
+            logger.info(
+              `End of game event, queuing removal of match ${matchId}`,
+            );
+            endedMatchIds.add(matchId);
             interestingEvent = false;
             break;
 
@@ -322,21 +366,27 @@ async function main(): Promise<void> {
           matchData.events.push(eventId);
           matchData.last_update = Date.now() / 1000;
         }
-
       }
     }
-    // remove from live if end of game.
+    // cleanup: remove from live if end of game.
     const match = matches.findIndex((m) => m.idMatch === matchId);
-    if (match >= 0 && matches[match].matchStatus === MATCH.FINISHED && db.live_matches.length > 0) {
-      logger.info(`Removing live_match(${key})`);
-      db.live_matches.splice(key, 1);
-      delete db[matchId];
-      break; // exit the loop for now
+    if (match >= 0 && matches[match].matchStatus === MATCH.FINISHED) {
+      logger.info(
+        `Match ${matchId} finished status (possibly without END_OF_GAME event), queuing removal`,
+      );
+      endedMatchIds.add(matchId);
     }
-
   }
 
-  logger.info(`Run complete - ${new Date().toISOString()} (${Date.now() - runStart}ms)`);
+  for (const id of endedMatchIds) {
+    logger.info(`Removing ended match ${id} from live_matches`);
+    db.live_matches = db.live_matches.filter((m) => m !== id);
+    delete db[id];
+  }
+
+  logger.info(
+    `Run complete - ${new Date().toISOString()} (${Date.now() - runStart}ms)`,
+  );
 
   // Record state for next run
   await saveDb(db);
@@ -345,13 +395,13 @@ async function main(): Promise<void> {
   }
 }
 
-
-
 if (IS_PROD) {
   main()
     .then(() => process.exit(0))
     .catch((err) => {
-      logger.error(err instanceof Error ? err.stack ?? err.message : String(err));
+      logger.error(
+        err instanceof Error ? (err.stack ?? err.message) : String(err),
+      );
       process.exit(1);
     });
 } else {
@@ -359,7 +409,11 @@ if (IS_PROD) {
     try {
       await main();
     } catch (err) {
-      logger.error(err instanceof Error ? (err as Error).stack ?? (err as Error).message : String(err));
+      logger.error(
+        err instanceof Error
+          ? ((err as Error).stack ?? (err as Error).message)
+          : String(err),
+      );
     } finally {
       setTimeout(loop, 60 * 1000);
     }

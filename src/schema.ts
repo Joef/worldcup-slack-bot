@@ -35,12 +35,14 @@ export const MatchSchema = z
     Stadium: z.object({
       Name: languageSchema,
       CityName: languageSchema,
-      IdCountry: z.string()
-    }),
-    Officials: z.array(z.object({
       IdCountry: z.string(),
-      Name: languageSchema
-    }))
+    }),
+    Officials: z.array(
+      z.object({
+        IdCountry: z.string(),
+        Name: languageSchema,
+      }),
+    ),
   })
   .transform((d) => ({
     idMatch: d.IdMatch,
@@ -57,7 +59,7 @@ export const MatchSchema = z
       name: d.Stadium.Name[0]?.Description,
       city: d.Stadium.CityName[0]?.Description,
       idCountry: d.Stadium.IdCountry,
-    }
+    },
   }));
 
 export const MatchesResponseSchema = z

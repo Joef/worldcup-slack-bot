@@ -24,6 +24,7 @@ export interface Translations {
   endOf1stET: string;
   endOf2ndET: string;
   endOfPenaltyShootout: string;
+  penaltyPeriod: string;
   substitution: string;
   weatherDelay: string;
 }
@@ -50,6 +51,7 @@ export const language: Record<LOCALE, Translations> = {
     endOf1stET: 'Mi-temps de la prolongation',
     endOf2ndET: 'Fin de la prolongation',
     endOfPenaltyShootout: 'Fin de la séance de tirs au but',
+    penaltyPeriod: '',
     substitution: '',
     weatherDelay: '',
   },
@@ -71,9 +73,10 @@ export const language: Record<LOCALE, Translations> = {
     hasResumed: 'has resumed',
     endOf1stET: 'END OF 1ST ET',
     endOf2ndET: 'END OF 2ND ET',
-    endOfPenaltyShootout: 'END OF PENALTY SHOOTOUT',
+    endOfPenaltyShootout: 'PENALTY SHOOTOUT',
+    penaltyPeriod: 'has started the penalty shootout!!!',
     substitution: 'Substitution',
-    weatherDelay: 'Weather delay'
+    weatherDelay: 'Weather delay',
   },
   [LOCALE.ES]: {
     matchBetween: 'El partido',
@@ -93,8 +96,9 @@ export const language: Record<LOCALE, Translations> = {
     hasResumed: 'ha reanudado',
     endOf1stET: 'FIN DE LA PRÓRROGA 1',
     endOf2ndET: 'FIN DE LA PRÓRROGA 2',
-    endOfPenaltyShootout: 'FIN DE LA TANDA DE PENALTIS',
+    endOfPenaltyShootout: 'LA TANDA DE PENALTIS',
+    penaltyPeriod: '',
     substitution: '',
-    weatherDelay: ''
+    weatherDelay: '',
   },
 };

@@ -1,7 +1,7 @@
 import { PERIOD } from './constants';
-import { DB, saveDb } from './db';
+import { DB, Penalties, PenaltyResult, saveDb } from './db';
 import { logger } from './logger';
-import { IconName } from './icons';
+import { Icon, IconName } from './icons';
 import { language, locale, TranslationKey } from './languages';
 import {
   EventsResponseSchema,
@@ -92,8 +92,12 @@ export async function getMatches(db: DB): Promise<Match[]> {
   const response = await getUrl(url, db);
   if (response === false) return [];
   const result = MatchesResponseSchema.parse(JSON.parse(response));
-  const matches = result.results.filter((m) => m.home !== null && m.away !== null) as Match[];
-  logger.info(`Parsed ${result.results.length} matches (${result.results.length - matches.length} without teams assigned)`);
+  const matches = result.results.filter(
+    (m) => m.home !== null && m.away !== null,
+  ) as Match[];
+  logger.info(
+    `Parsed ${result.results.length} matches (${result.results.length - matches.length} without teams assigned)`,
+  );
   return matches;
 }
 
@@ -116,8 +120,10 @@ export async function getEventPlayerAlias(
   eventPlayerId: string,
   db: DB,
 ): Promise<string> {
-  const url = buildUrl(`${ENDPOINTS.PLAYER}/${eventPlayerId}?language=${locale}`);
-  logger.info(`GET ${url}`);
+  const url = buildUrl(
+    `${ENDPOINTS.PLAYER}/${eventPlayerId}?language=${locale}`,
+  );
+  // logger.info(`GET ${url}`);
   const response = PlayerResponseSchema.parse(
     JSON.parse((await getUrl(url, db, true)) as string),
   );
@@ -134,23 +140,20 @@ export function parsePeriodStart(period: number, matchInfo: string): Output {
   switch (period) {
     case PERIOD.FIRST_HALF:
       return {
-        message: slack.m(
-          'stopwatch',
-          'matchBetween',
-        ) + ` ${t.hasStarted}!`,
-        details: matchInfo
+        message: slack.m('stopwatch', 'matchBetween') + ` ${t.hasStarted}!`,
+        details: matchInfo,
       };
 
     case PERIOD.SECOND_HALF:
     case PERIOD.FIRST_ET:
     case PERIOD.SECOND_ET:
+      return {
+        message: slack.m('runner', 'matchBetween') + ` ${t.hasResumed}`,
+        details: matchInfo,
+      };
     case PERIOD.PENALTY:
       return {
-        message: slack.m(
-          'runner',
-          'matchBetween',
-        ) + ` ${t.hasResumed}`,
-        details: matchInfo
+        message: slack.m('gloves', 'matchBetween') + ` ${t.penaltyPeriod}`,
       };
     default:
       return { message: '' };
@@ -165,10 +168,13 @@ export type EventInfo = {
 
 export function parsePeriodEnd(
   eventInfo: EventInfo,
-  penalties?: string,
+  penalties?: Penalties,
 ): Output {
   const { period, score, matchTimeInfo } = eventInfo;
 
+  const result = penalties
+    ? `${penalties.home.flag} ${penalties.home.score} - ${penalties.away.score} ${penalties.away.flag} ${penalties.home.score > penalties.away.score ? penalties.home.name.toLocaleUpperCase() : penalties.away.name.toLocaleUpperCase()} WINS`
+    : '';
   const output: Output = { message: '', details: `${score} ` };
 
   switch (period) {
@@ -182,14 +188,14 @@ export function parsePeriodEnd(
       output.message = slack.m('clock6', 'endOf1stET', { meta: matchTimeInfo });
       break;
     case PERIOD.SECOND_ET:
-      output.message = slack.m('clock12', 'endOf2ndET', { meta: matchTimeInfo });
+      output.message = slack.m('clock12', 'endOf2ndET', {
+        meta: matchTimeInfo,
+      });
       break;
     case PERIOD.PENALTY:
-      output.message = slack.m(
-        'stopwatch',
-        'endOfPenaltyShootout',
-        { meta: `${score} (${penalties})` },
-      );
+      output.message = slack.m('gloves', 'endOfPenaltyShootout', {
+        meta: `${result}`,
+      });
       break;
   }
   return output;
@@ -201,6 +207,21 @@ export type PlayerInfo = {
   eventTeam: string;
 };
 
+function buildPenaltyResults(outcome: Array<PenaltyResult>, rounds: number) {
+  let result = [];
+  for (let i = 0; i < rounds; i++) {
+    result.push(
+      i < outcome.length
+        ? outcome[i] === 'X'
+          ? Icon.make
+          : Icon.miss
+        : Icon.attempt,
+    );
+  }
+
+  return result;
+}
+
 export async function parsePlayerEvent(
   playerInfo: PlayerInfo,
   eventInfo: EventInfo,
@@ -211,11 +232,33 @@ export async function parsePlayerEvent(
     includeScore?: boolean;
     includeTime?: boolean;
     meta?: string;
+    penaltyPeriod?:
+      | ({
+          active: boolean;
+        } & Penalties)
+      | null;
   } = { includeTime: true },
 ): Promise<Output> {
   if (!playerInfo.playerId) {
-    logger.warn(`parsePlayerEvent called for "${text}" but playerId is missing — skipping`);
-    return { message: slack.m('soccer', 'goal', { meta: playerInfo.eventTeam ?? '' }) };;
+    logger.warn(
+      `parsePlayerEvent called for "${text}" but playerId is missing — skipping`,
+    );
+    return {
+      message: slack.m(icon, text, { meta: playerInfo.eventTeam ?? '' }),
+    };
+  }
+  let pks = '';
+  if (options.penaltyPeriod && options.penaltyPeriod.active) {
+    const penalties = options.penaltyPeriod;
+    const current = Math.max(
+      options.penaltyPeriod.home.result.length,
+      options.penaltyPeriod.away.result.length,
+    );
+    const rounds = Math.max(current, 5);
+
+    const home = `${penalties.home.flag} ${buildPenaltyResults(penalties.home.result, rounds).join('')}  ${options.penaltyPeriod?.home.score}`;
+    const away = `${options.penaltyPeriod?.away.score}  ${buildPenaltyResults(penalties.away.result, rounds).reverse().join('')} ${penalties.away.flag}`;
+    pks = `\n\n*Round ${current}*\n${home} - ${away}`;
   }
 
   const { playerId, db, eventTeam } = playerInfo;
@@ -224,15 +267,10 @@ export async function parsePlayerEvent(
   const eventPlayerAlias = await getEventPlayerAlias(playerId, db);
 
   return {
-    message: slack.m(
-      icon,
-      text,
-      {
-        ...options,
-        meta: options.includeTime ? matchTimeInfo : ''
-      }
-
-    ),
-    details: `${eventTeam} - ${eventPlayerAlias} \n${options.includeScore ? `\n${score}` : ''} `,
+    message: slack.m(icon, text, {
+      ...options,
+      meta: options.includeTime ? matchTimeInfo : '',
+    }),
+    details: `${eventTeam} - ${eventPlayerAlias} ${pks}\n${options.includeScore ? `\n${score}` : ''} `,
   };
 }

@@ -28,8 +28,15 @@ export enum EVENT {
   PENALTY_MISSED = 65,
   GOAL_DISALLOWED = 71,
   FOUL_PENALTY = 72,
-  WEATHER_DELAY = 85
+  WEATHER_DELAY = 85,
 }
+
+export const PENALTY_RESULT = [
+  EVENT.PENALTY_GOAL,
+  EVENT.PENALTY_MISSED,
+  EVENT.PENALTY_SAVED,
+  EVENT.PENALTY_CROSSBAR,
+];
 
 export const INTERESTING_EVENTS = Object.values(EVENT);
 
@@ -47,8 +54,8 @@ export enum VAR_INCIDENT {
 }
 
 export enum VAR_RESULT {
-  UPHELD = 1,           // decision confirmed / goal awarded
-  OVERTURNED = 2,       // decision reversed / goal disallowed
+  UPHELD = 1, // decision confirmed / goal awarded
+  OVERTURNED = 2, // decision reversed / goal disallowed
   PENALTY_AWARDED = 3,
   NO_PENALTY = 4,
   RED_CARD_GIVEN = 8,

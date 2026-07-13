@@ -9,12 +9,29 @@ const dbFileName = 'worldCupDB.json';
 const storage = ENVIRONMENT === 'prod' ? new Storage() : null;
 const bucket = storage?.bucket(GCS_BUCKET);
 
+export type PenaltyResult = 'X' | 'O';
+
+interface PenaltyScore {
+  name: string;
+  flag: string;
+  score: number;
+  result: Array<PenaltyResult>;
+}
+export interface Penalties {
+  home: PenaltyScore;
+  away: PenaltyScore;
+}
+
 export interface MatchData {
   events: Array<string>;
   stage_id: string;
   teamsById: Record<string, string>;
-  teamsByHomeAway: { home: string; away: string };
+  teamsByHomeAway: {
+    home: { id: string; name: string };
+    away: { id: string; name: string };
+  };
   last_update: number;
+  penalties: Penalties;
   score?: string;
 }
 

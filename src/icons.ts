@@ -1,13 +1,17 @@
 export type IconName =
   | 'arrow_up_down'
+  | 'attempt'
   | 'beers'
   | 'collision'
   | 'exclamation'
   | 'eyes'
   | 'face_exhaling'
   | 'face_palm'
+  | 'gloves'
   | 'large_yellow_square'
   | 'large_red_square'
+  | 'make'
+  | 'miss'
   | 'no_good'
   | 'runner'
   | 'soccer'
@@ -19,6 +23,7 @@ export type IconName =
 
 export const Icon: Record<IconName, string> = {
   arrow_up_down: ':arrow_up_down:',
+  attempt: ':white_circle:',
   beers: ':beers:',
   clock6: ':clock6:',
   clock12: ':clock12:',
@@ -27,8 +32,11 @@ export const Icon: Record<IconName, string> = {
   eyes: ':eyes:',
   face_exhaling: ':face_exhaling:',
   face_palm: ':face_palm:',
+  gloves: ':gloves:',
   large_yellow_square: ':large_yellow_circle:',
-  large_red_square: ':large_red_square:',
+  large_red_square: ':red_circle:',
+  make: ':large_green_circle:',
+  miss: ':red_circle:',
   no_good: ':no_good:',
   runner: ':runner:',
   soccer: ':soccer:',
@@ -85,7 +93,7 @@ export type CountryName =
   | 'TUR'
   | 'URU'
   | 'USA'
-  | 'UZB'
+  | 'UZB';
 
 export const CountryIcon: Record<CountryName, string> = {
   CAN: ':flag-ca:',
@@ -136,5 +144,4 @@ export const CountryIcon: Record<CountryName, string> = {
   TUR: ':flag-tr:',
   URU: ':flag-uy:',
   UZB: ':flag-uz:',
-}
-
+};
