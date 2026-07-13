@@ -33,6 +33,34 @@ export enum EVENT {
 
 export const INTERESTING_EVENTS = Object.values(EVENT);
 
+/**
+ * VAR (Type=71) notification codes — inferred from 2026 World Cup match data.
+ * Values marked "?" are unconfirmed and may be incorrect.
+ */
+export enum VAR_INCIDENT {
+  GOAL = 1,
+  GOAL_PENALTY = 2, // ?
+  PENALTY = 4,
+  RED_CARD = 13,
+  YELLOW_CARD = 14, // mistaken identity / card reassignment
+  HANDBALL_PENALTY = 16, // ?
+}
+
+export enum VAR_RESULT {
+  UPHELD = 1,           // decision confirmed / goal awarded
+  OVERTURNED = 2,       // decision reversed / goal disallowed
+  PENALTY_AWARDED = 3,
+  NO_PENALTY = 4,
+  RED_CARD_GIVEN = 8,
+  PENALTY_AWARDED_ALT = 10, // ? same outcome as 3 but different incident type
+  CARD_REASSIGNED = 11,
+}
+
+export enum VAR_STATUS {
+  FINAL = 0,
+  UNDER_REVIEW = 1, // ?
+}
+
 export enum PERIOD {
   FIRST_HALF = 3,
   SECOND_HALF = 5,
